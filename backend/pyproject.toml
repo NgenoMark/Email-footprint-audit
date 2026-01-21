@@ -1,0 +1,16 @@
+[project]
+name = "email-footprint-audit-backend"
+version = "0.1.0"
+description = "FastAPI backend for Email Footprint Audit"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sqlalchemy",
+    "alembic",
+    "psycopg[binary]",
+    "python-dotenv",
+]
+
+[tool.alembic]
+script_location = "alembic"
