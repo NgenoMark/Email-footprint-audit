@@ -54,4 +54,10 @@ npm run dev
 ## Database
 
 - Create a Postgres database named `email_audit`.
-- Run migrations (TBD: Alembic).
+- Run migrations:
+
+```
+cd backend
+alembic revision --autogenerate -m "init"
+alembic upgrade head
+```
