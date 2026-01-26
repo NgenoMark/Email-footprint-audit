@@ -1,7 +1,13 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_db
+from app.db.models.connected_account import ConnectedAccount
+from app.db.models.scan_run import ScanRun
+from app.services.scan_engine import run_gmail_scan
 
 router = APIRouter()
 
@@ -29,21 +35,34 @@ class ScanListResponse(BaseModel):
 
 
 @router.post("/scans", response_model=ScanCreateResponse)
-def create_scan(payload: ScanCreateRequest) -> ScanCreateResponse:
-    return ScanCreateResponse(scan_id="scan-0001", status="queued")
+def create_scan(
+    payload: ScanCreateRequest, db: Session = Depends(get_db)
+) -> ScanCreateResponse:
+    if payload.provider != "gmail":
+        raise HTTPException(status_code=400, detail="Unsupported provider")
+    connected = db.query(ConnectedAccount).filter_by(provider="gmail").first()
+    if not connected:
+        raise HTTPException(status_code=400, detail="No Gmail account connected")
+    scan = run_gmail_scan(db, connected, payload.query)
+    return ScanCreateResponse(scan_id=str(scan.id), status=scan.status)
 
 
 @router.get("/scans", response_model=ScanListResponse)
-def list_scans() -> ScanListResponse:
-    now = datetime.now(timezone.utc)
-    return ScanListResponse(
-        items=[
-            ScanItem(
-                id="scan-0001",
-                status="running",
-                query="subject:(welcome OR verify OR \"confirm your email\")",
-                started_at=now,
-                finished_at=None,
-            )
-        ]
+def list_scans(db: Session = Depends(get_db)) -> ScanListResponse:
+    scans = (
+        db.query(ScanRun)
+        .order_by(ScanRun.created_at.desc())
+        .limit(20)
+        .all()
     )
+    items = [
+        ScanItem(
+            id=str(scan.id),
+            status=scan.status,
+            query=scan.query,
+            started_at=scan.started_at,
+            finished_at=scan.finished_at,
+        )
+        for scan in scans
+    ]
+    return ScanListResponse(items=items)
