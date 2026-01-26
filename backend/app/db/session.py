@@ -1,11 +1,15 @@
 import os
 
+from dotenv import load_dotenv
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 def get_database_url() -> str:
+    load_dotenv()
     return os.getenv(
-        "DATABASE_URL", "postgresql://user:password@localhost:5432/email_audit"
+        "DATABASE_URL",
+        "postgresql+psycopg://user:password@localhost:5432/email_audit",
     )
 
 
