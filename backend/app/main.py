@@ -1,10 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
 from app.api.routes import auth, evidence, exports, gmail, health, scans, services, settings
 from app.core.config import settings as app_settings
 from app.core.logging import setup_logging
 
+load_dotenv()
 setup_logging()
 
 app = FastAPI(
