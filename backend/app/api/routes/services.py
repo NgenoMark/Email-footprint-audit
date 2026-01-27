@@ -1,7 +1,14 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_db
+from app.db.models.service import Service
+from app.db.models.service_evidence_link import ServiceEvidenceLink
+from app.db.models.evidence_email import EvidenceEmail
+from app.db.models.user import User
 
 router = APIRouter()
 
@@ -47,42 +54,83 @@ class ServiceDetailResponse(BaseModel):
 def list_services(
     q: str | None = Query(default=None),
     confidence: str | None = Query(default=None),
+    db: Session = Depends(get_db),
 ) -> ServiceListResponse:
-    now = datetime.now(timezone.utc)
-    item = ServiceListItem(
-        id="svc-0001",
-        display_name="Netflix",
-        primary_domain="netflix.com",
-        category="streaming",
-        confidence="high",
-        confidence_reason="welcome + receipts from official domain",
-        first_seen_at=now,
-        last_seen_at=now,
-        evidence_count=5,
-    )
-    return ServiceListResponse(items=[item])
+    user = db.query(User).order_by(User.created_at.asc()).first()
+    if not user:
+        return ServiceListResponse(items=[])
+    query = db.query(Service).filter(Service.user_id == user.id)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(Service.display_name.ilike(like))
+    if confidence:
+        query = query.filter(Service.confidence == confidence)
+    services = query.order_by(Service.last_seen_at.desc().nullslast()).all()
+    items = []
+    for service in services:
+        evidence_count = (
+            db.query(ServiceEvidenceLink)
+            .filter_by(service_id=service.id)
+            .count()
+        )
+        items.append(
+            ServiceListItem(
+                id=str(service.id),
+                display_name=service.display_name,
+                primary_domain=service.primary_domain,
+                category=service.category,
+                confidence=service.confidence,
+                confidence_reason=service.confidence_reason,
+                first_seen_at=service.first_seen_at,
+                last_seen_at=service.last_seen_at,
+                evidence_count=evidence_count,
+            )
+        )
+    return ServiceListResponse(items=items)
 
 
 @router.get("/services/{service_id}", response_model=ServiceDetailResponse)
-def get_service(service_id: str) -> ServiceDetailResponse:
-    now = datetime.now(timezone.utc)
+def get_service(service_id: str, db: Session = Depends(get_db)) -> ServiceDetailResponse:
+    service = db.query(Service).filter_by(id=service_id).first()
+    if not service:
+        return ServiceDetailResponse(
+            id=service_id,
+            display_name="unknown",
+            primary_domain="unknown",
+            category=None,
+            confidence="low",
+            confidence_reason="service not found",
+            first_seen_at=None,
+            last_seen_at=None,
+            evidence=[],
+        )
+    links = (
+        db.query(ServiceEvidenceLink, EvidenceEmail)
+        .join(EvidenceEmail, EvidenceEmail.id == ServiceEvidenceLink.evidence_email_id)
+        .filter(ServiceEvidenceLink.service_id == service.id)
+        .order_by(EvidenceEmail.sent_at.desc())
+        .limit(50)
+        .all()
+    )
+    evidence_items = [
+        ServiceEvidenceItem(
+            id=str(ev.id),
+            from_address=ev.from_address,
+            subject=ev.subject,
+            sent_at=ev.sent_at,
+            evidence_type=ev.evidence_type,
+            match_reason=link.match_reason,
+        )
+        for link, ev in links
+    ]
     return ServiceDetailResponse(
-        id=service_id,
-        display_name="Netflix",
-        primary_domain="netflix.com",
-        category="streaming",
-        confidence="high",
-        confidence_reason="welcome + receipts from official domain",
-        first_seen_at=now,
-        last_seen_at=now,
-        evidence=[
-            ServiceEvidenceItem(
-                id="ev-0001",
-                from_address="info@netflix.com",
-                subject="Welcome to Netflix",
-                sent_at=now,
-                evidence_type="welcome",
-                match_reason="domain_match",
-            )
-        ],
+        id=str(service.id),
+        display_name=service.display_name,
+        primary_domain=service.primary_domain,
+        category=service.category,
+        confidence=service.confidence,
+        confidence_reason=service.confidence_reason,
+        first_seen_at=service.first_seen_at,
+        last_seen_at=service.last_seen_at,
+        evidence=evidence_items,
     )
