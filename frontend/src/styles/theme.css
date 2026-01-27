@@ -1,0 +1,31 @@
+:root {
+  --font-sans: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Fraunces", "Georgia", serif;
+  --bg: radial-gradient(circle at top left, #1a2330 0%, #10141f 45%, #0b0d12 100%);
+  --panel: rgba(16, 20, 31, 0.82);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --text-primary: #f5f5f0;
+  --text-muted: #b6bcc8;
+  --accent: #ffb662;
+  --accent-2: #7cd4ff;
+  --shadow-soft: 0 18px 40px rgba(7, 10, 18, 0.35);
+}
+
+.tag {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--accent-2);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 42px;
+  margin: 12px 0;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 16px;
+  max-width: 620px;
+}
