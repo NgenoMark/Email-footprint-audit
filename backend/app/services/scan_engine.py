@@ -9,6 +9,7 @@ from app.db.models.connected_account import ConnectedAccount
 from app.db.models.evidence_email import EvidenceEmail
 from app.db.models.scan_run import ScanRun
 from app.services.gmail_client import GmailClient
+from app.services.service_detector import detect_and_upsert_services
 from app.utils.parsing import classify_evidence_type, extract_domain
 
 
@@ -92,6 +93,7 @@ def run_gmail_scan(
             )
             db.add(evidence)
 
+        detect_and_upsert_services(db, connected_account.user_id)
         scan.status = "success"
     except Exception as exc:  # noqa: BLE001
         scan.status = "failed"
