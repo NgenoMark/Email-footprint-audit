@@ -1,5 +1,6 @@
 import EmptyState from "../../components/EmptyState";
 import Filters from "../../components/Filters";
+import RebuildButton from "../../components/RebuildButton";
 import ServiceCard from "../../components/ServiceCard";
 import { fetchJson } from "../../lib/api";
 import type {
@@ -18,19 +19,27 @@ type DashboardProps = {
 export default async function DashboardPage({ searchParams }: DashboardProps) {
   const confidence = searchParams?.confidence || "";
   const category = searchParams?.category || "";
+  const search = searchParams?.q || "";
+  const page = Number(searchParams?.page || 1);
+  const pageSize = 24;
   const query = new URLSearchParams();
+  if (search) {
+    query.set("q", search);
+  }
   if (confidence) {
     query.set("confidence", confidence);
   }
   if (category) {
     query.set("category", category);
   }
-  const servicesPath = query.toString() ? `/services?${query}` : "/services";
+  query.set("page", String(page));
+  query.set("page_size", String(pageSize));
+  const servicesPath = `/services?${query.toString()}`;
 
   const [servicesData, scansData, evidenceData] = await Promise.all([
     fetchJson<ServiceListResponse>(servicesPath),
     fetchJson<ScanListResponse>("/scans"),
-    fetchJson<EvidenceListResponse>("/evidence"),
+    fetchJson<EvidenceListResponse>("/evidence?page=1&page_size=5"),
   ]);
   const services = servicesData.items;
   const lastScan = scansData.items[0];
@@ -49,7 +58,7 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
       <div className="panel dashboard__summary">
         <div>
           <p className="tag">Scan summary</p>
-          <h2>{services.length} services discovered</h2>
+          <h2>{servicesData.total} services discovered</h2>
           <p className="subtitle">
             {lastScan
               ? `Last scan ${new Date(lastScan.started_at || "").toLocaleString()} · ${highCount} high confidence services detected.`
@@ -98,6 +107,13 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
             </ul>
           )}
         </div>
+        <div className="panel dashboard__history">
+          <h3>Maintenance</h3>
+          <p className="subtitle">
+            If you update the domain map, rebuild services to merge duplicates.
+          </p>
+          <RebuildButton />
+        </div>
       </div>
 
       {services.length === 0 ? (
@@ -131,6 +147,46 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
               </div>
             </details>
           ))}
+          <div className="pagination">
+            <a
+              className={`btn secondary ${page <= 1 ? "disabled" : ""}`}
+              href={
+                page > 1
+                  ? `/dashboard?${new URLSearchParams({
+                      ...(search ? { q: search } : {}),
+                      ...(confidence ? { confidence } : {}),
+                      ...(category ? { category } : {}),
+                      page: String(page - 1),
+                    }).toString()}`
+                  : "#"
+              }
+            >
+              Previous
+            </a>
+            <span className="chip">
+              Page {servicesData.page} of{" "}
+              {Math.max(1, Math.ceil(servicesData.total / servicesData.page_size))}
+            </span>
+            <a
+              className={`btn secondary ${
+                servicesData.page * servicesData.page_size >= servicesData.total
+                  ? "disabled"
+                  : ""
+              }`}
+              href={
+                servicesData.page * servicesData.page_size < servicesData.total
+                  ? `/dashboard?${new URLSearchParams({
+                      ...(search ? { q: search } : {}),
+                      ...(confidence ? { confidence } : {}),
+                      ...(category ? { category } : {}),
+                      page: String(page + 1),
+                    }).toString()}`
+                  : "#"
+              }
+            >
+              Next
+            </a>
+          </div>
         </div>
       )}
     </section>
