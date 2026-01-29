@@ -12,6 +12,9 @@ export type ServiceListItem = {
 
 export type ServiceListResponse = {
   items: ServiceListItem[];
+  total: number;
+  page: number;
+  page_size: number;
 };
 
 export type ServiceEvidenceItem = {
@@ -47,6 +50,9 @@ export type EvidenceItem = {
 
 export type EvidenceListResponse = {
   items: EvidenceItem[];
+  total: number;
+  page: number;
+  page_size: number;
 };
 
 export type ScanItem = {

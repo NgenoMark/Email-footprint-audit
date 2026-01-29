@@ -26,3 +26,10 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
   }
   return response.json() as Promise<T>;
 }
+
+export function resolveApiUrl(pathOrUrl: string): string {
+  if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
+    return pathOrUrl;
+  }
+  return joinUrl(getApiBase(), pathOrUrl);
+}
