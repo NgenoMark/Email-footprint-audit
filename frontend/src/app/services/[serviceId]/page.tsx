@@ -1,40 +1,40 @@
 import ConfidenceBadge from "../../../components/ConfidenceBadge";
-import EvidenceList from "../../../components/EvidenceList";
+import EvidenceList, { EvidenceItem } from "../../../components/EvidenceList";
+import { fetchJson } from "../../../lib/api";
+import type { ServiceDetailResponse } from "../../../types/api";
 
-const evidenceItems = [
-  {
-    id: "1",
-    subject: "Welcome to OPSWAT Academy!",
-    from: "noreply@opswatacademy.com",
-    date: "Jan 24, 2026",
-    type: "welcome",
-  },
-  {
-    id: "2",
-    subject: "Verify your email",
-    from: "security@opswatacademy.com",
-    date: "Jan 24, 2026",
-    type: "verify",
-  },
-];
-
-export default function ServiceDetailPage({
+export default async function ServiceDetailPage({
   params,
 }: {
   params: { serviceId: string };
 }) {
+  const service = await fetchJson<ServiceDetailResponse>(
+    `/services/${params.serviceId}`
+  );
+  const evidenceItems: EvidenceItem[] = service.evidence.map((item) => ({
+    id: item.id,
+    subject: item.subject,
+    from: item.from_address,
+    date: new Date(item.sent_at).toLocaleString(),
+    type: item.evidence_type,
+  }));
   return (
     <section className="grid">
       <div className="panel service-detail">
         <p className="tag">Service</p>
-        <h2>{params.serviceId}</h2>
+        <h2>{service.display_name}</h2>
         <p className="subtitle">
-          Detected from official domain and verified emails.
+          {service.confidence_reason}
         </p>
         <div className="service-detail__meta">
-          <ConfidenceBadge level="high" />
-          <span className="chip">First seen Jan 24, 2026</span>
-          <span className="chip">4 evidence emails</span>
+          <ConfidenceBadge level={service.confidence} />
+          <span className="chip">
+            First seen{" "}
+            {service.first_seen_at
+              ? new Date(service.first_seen_at).toLocaleDateString()
+              : "unknown"}
+          </span>
+          <span className="chip">{service.evidence.length} evidence emails</span>
         </div>
       </div>
       <EvidenceList items={evidenceItems} />
