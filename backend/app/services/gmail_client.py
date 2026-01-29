@@ -29,14 +29,16 @@ class GmailClient:
         profile = self._service.users().getProfile(userId="me").execute()
         return profile.get("emailAddress", "")
 
-    def list_messages(self, query: str, max_results: int = 50) -> list[dict]:
-        response = (
-            self._service.users()
-            .messages()
-            .list(userId="me", q=query, maxResults=max_results)
-            .execute()
+    def list_messages(
+        self,
+        query: str,
+        max_results: int = 50,
+        page_token: str | None = None,
+    ) -> dict:
+        request = self._service.users().messages().list(
+            userId="me", q=query, maxResults=max_results, pageToken=page_token
         )
-        return response.get("messages", [])
+        return request.execute()
 
     def get_message(self, message_id: str) -> dict:
         return (

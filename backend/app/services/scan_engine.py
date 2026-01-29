@@ -38,7 +38,7 @@ def run_gmail_scan(
     db: Session,
     connected_account: ConnectedAccount,
     query: str,
-    max_results: int = 50,
+    max_results: int = 200,
 ) -> ScanRun:
     scan = ScanRun(
         user_id=connected_account.user_id,
@@ -61,37 +61,51 @@ def run_gmail_scan(
             scopes=connected_account.scopes,
         )
 
-        messages = client.list_messages(query=query, max_results=max_results)
-        for message in messages:
-            message_id = message.get("id")
-            if not message_id:
-                continue
-            existing = (
-                db.query(EvidenceEmail)
-                .filter_by(provider="gmail", provider_message_id=message_id)
-                .first()
+        next_token = None
+        total = 0
+        page_size = min(100, max_results)
+        while True:
+            response = client.list_messages(
+                query=query,
+                max_results=min(page_size, max_results - total),
+                page_token=next_token,
             )
-            if existing:
-                continue
-            data = client.get_message(message_id)
-            headers = _parse_headers(data.get("payload", {}).get("headers", []))
-            from_address = headers.get("from", "")
-            subject = headers.get("subject", "")
-            sent_at = _parse_sent_date(headers.get("date", ""))
-            evidence = EvidenceEmail(
-                user_id=connected_account.user_id,
-                provider="gmail",
-                provider_message_id=message_id,
-                from_address=from_address,
-                from_domain=extract_domain(from_address),
-                subject=subject,
-                snippet=data.get("snippet"),
-                sent_at=sent_at,
-                received_at=datetime.now(timezone.utc),
-                evidence_type=classify_evidence_type(subject),
-                raw_headers=headers,
-            )
-            db.add(evidence)
+            messages = response.get("messages", [])
+            for message in messages:
+                message_id = message.get("id")
+                if not message_id:
+                    continue
+                existing = (
+                    db.query(EvidenceEmail)
+                    .filter_by(provider="gmail", provider_message_id=message_id)
+                    .first()
+                )
+                if existing:
+                    continue
+                data = client.get_message(message_id)
+                headers = _parse_headers(data.get("payload", {}).get("headers", []))
+                from_address = headers.get("from", "")
+                subject = headers.get("subject", "")
+                sent_at = _parse_sent_date(headers.get("date", ""))
+                evidence = EvidenceEmail(
+                    user_id=connected_account.user_id,
+                    provider="gmail",
+                    provider_message_id=message_id,
+                    from_address=from_address,
+                    from_domain=extract_domain(from_address),
+                    subject=subject,
+                    snippet=data.get("snippet"),
+                    sent_at=sent_at,
+                    received_at=datetime.now(timezone.utc),
+                    evidence_type=classify_evidence_type(subject),
+                    raw_headers=headers,
+                )
+                db.add(evidence)
+
+            total += len(messages)
+            next_token = response.get("nextPageToken")
+            if not next_token or total >= max_results:
+                break
 
         detect_and_upsert_services(db, connected_account.user_id)
         scan.status = "success"
