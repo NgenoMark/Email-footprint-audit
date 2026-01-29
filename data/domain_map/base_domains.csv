@@ -1,1 +1,171 @@
 domain,service_name,category
+opswatacademy.com,OPSWAT Academy,education
+activision.com,Activision,gaming
+notion.so,Notion,productivity
+netflix.com,Netflix,streaming
+google.com,Google,productivity
+accounts.google.com,Google,productivity
+amazon.com,Amazon,shopping
+spotify.com,Spotify,streaming
+facebookmail.com,Facebook,social
+x.com,X (Twitter),social
+twitter.com,X (Twitter),social
+steamcommunity.com,Steam,gaming
+epicgames.com,Epic Games,gaming
+playstation.com,PlayStation,gaming
+microsoft.com,Microsoft,productivity
+office.com,Microsoft 365,productivity
+apple.com,Apple,productivity
+instagram.com,Instagram,social
+tiktok.com,TikTok,social
+twitch.tv,Twitch,streaming
+reddit.com,Reddit,community
+pinterest.com,Pinterest,social
+snapchat.com,Snapchat,social
+linkedin.com,LinkedIn,social
+facebook.com,Facebook,social
+whatsapp.com,WhatsApp,communication
+messenger.com,Messenger,communication
+threads.net,Threads,social
+threads.com,Threads,social
+youtube.com,YouTube,streaming
+music.youtube.com,YouTube Music,streaming
+youtu.be,YouTube,streaming
+disneyplus.com,Disney+,streaming
+disneyplus.com.au,Disney+,streaming
+hulu.com,Hulu,streaming
+peacocktv.com,Peacock,streaming
+paramountplus.com,Paramount+,streaming
+hbomax.com,Max,streaming
+max.com,Max,streaming
+primevideo.com,Prime Video,streaming
+tv.apple.com,Apple TV+,streaming
+music.apple.com,Apple Music,streaming
+soundcloud.com,SoundCloud,streaming
+bandcamp.com,Bandcamp,streaming
+deezer.com,Deezer,streaming
+tidal.com,TIDAL,streaming
+vimeo.com,Vimeo,streaming
+anchor.fm,Spotify for Podcasters,streaming
+patreon.com,Patreon,creator
+onlyfans.com,OnlyFans,creator
+ko-fi.com,Ko-fi,creator
+buymeacoffee.com,Buy Me a Coffee,creator
+tumblr.com,Tumblr,social
+medium.com,Medium,news
+substack.com,Substack,newsletters
+mailchimp.com,Mailchimp,marketing
+convertkit.com,ConvertKit,marketing
+sendgrid.com,SendGrid,marketing
+mailgun.com,Mailgun,marketing
+campaignmonitor.com,Campaign Monitor,marketing
+hubspot.com,HubSpot,marketing
+intercom.com,Intercom,marketing
+zendesk.com,Zendesk,support
+freshdesk.com,Freshdesk,support
+atlassian.net,Atlassian,developer
+jira.com,Jira,developer
+trello.com,Trello,productivity
+asana.com,Asana,productivity
+basecamp.com,Basecamp,productivity
+clickup.com,ClickUp,productivity
+todoist.com,Todoist,productivity
+evernote.com,Evernote,productivity
+airtable.com,Airtable,productivity
+figma.com,Figma,design
+canva.com,Canva,design
+adobe.com,Adobe,design
+behance.net,Behance,design
+dribbble.com,Dribbble,design
+dropbox.com,Dropbox,productivity
+box.com,Box,productivity
+onedrive.live.com,OneDrive,productivity
+drive.google.com,Google Drive,productivity
+docs.google.com,Google Docs,productivity
+meet.google.com,Google Meet,productivity
+calendar.google.com,Google Calendar,productivity
+zoom.us,Zoom,productivity
+teams.microsoft.com,Microsoft Teams,productivity
+slack.com,Slack,developer
+discord.com,Discord,community
+telegram.org,Telegram,communication
+signal.org,Signal,communication
+skype.com,Skype,communication
+wechat.com,WeChat,communication
+line.me,LINE,communication
+viber.com,Viber,communication
+proton.me,Proton,communication
+protonmail.com,Proton Mail,communication
+icloud.com,iCloud,productivity
+mega.nz,MEGA,productivity
+github.com,GitHub,developer
+gitlab.com,GitLab,developer
+bitbucket.org,Bitbucket,developer
+stackoverflow.com,Stack Overflow,developer
+docker.com,Docker,developer
+npmjs.com,npm,developer
+pypi.org,PyPI,developer
+vercel.com,Vercel,developer
+netlify.com,Netlify,developer
+cloudflare.com,Cloudflare,developer
+aws.amazon.com,AWS,cloud
+azure.microsoft.com,Azure,cloud
+cloud.google.com,Google Cloud,cloud
+heroku.com,Heroku,cloud
+digitalocean.com,DigitalOcean,cloud
+linode.com,Akamai Connected Cloud,cloud
+oracle.com,Oracle,cloud
+ibm.com,IBM,cloud
+salesforce.com,Salesforce,enterprise
+stripe.com,Stripe,finance
+paypal.com,PayPal,finance
+wise.com,Wise,finance
+venmo.com,Venmo,finance
+cash.app,Cash App,finance
+revolut.com,Revolut,finance
+monzo.com,Monzo,finance
+chime.com,Chime,finance
+robinhood.com,Robinhood,finance
+coinbase.com,Coinbase,finance
+binance.com,Binance,finance
+kraken.com,Kraken,finance
+americanexpress.com,American Express,finance
+chase.com,Chase,finance
+bankofamerica.com,Bank of America,finance
+wellsfargo.com,Wells Fargo,finance
+citibank.com,Citi,finance
+capitalone.com,Capital One,finance
+aliexpress.com,AliExpress,shopping
+amazon.com,Amazon,shopping
+ebay.com,eBay,shopping
+walmart.com,Walmart,shopping
+target.com,Target,shopping
+etsy.com,Etsy,shopping
+temu.com,Temu,shopping
+shein.com,SHEIN,shopping
+bestbuy.com,Best Buy,shopping
+costco.com,Costco,shopping
+homedepot.com,Home Depot,shopping
+lowes.com,Lowe's,shopping
+ikea.com,IKEA,shopping
+booking.com,Booking.com,travel
+expedia.com,Expedia,travel
+airbnb.com,Airbnb,travel
+tripadvisor.com,Tripadvisor,travel
+kayak.com,KAYAK,travel
+skyscanner.com,Skyscanner,travel
+agoda.com,Agoda,travel
+priceline.com,Priceline,travel
+hotels.com,Hotels.com,travel
+trip.com,Trip.com,travel
+uber.com,Uber,travel
+lyft.com,Lyft,travel
+spotify.com,Spotify,streaming
+music.amazon.com,Amazon Music,streaming
+pandora.com,Pandora,streaming
+soundcloud.com,SoundCloud,streaming
+deezer.com,Deezer,streaming
+tidal.com,TIDAL,streaming
+audible.com,Audible,streaming
+hbo.com,HBO,streaming
+fox.com,Fox,streaming
