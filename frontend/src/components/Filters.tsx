@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { fetchJson } from "../lib/api";
+import { fetchJson, resolveApiUrl } from "../lib/api";
 
 type FiltersProps = {
   confidence?: string;
@@ -35,7 +35,7 @@ export default function Filters({ confidence, category }: FiltersProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ format: "csv" }),
       });
-      window.open(data.url, "_blank");
+      window.open(resolveApiUrl(data.url), "_blank");
     } catch (error) {
       console.error(error);
       alert("Export failed.");
