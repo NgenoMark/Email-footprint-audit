@@ -21,7 +21,7 @@ def classify_evidence_type(subject: str) -> str:
         return "reset"
     if "receipt" in text or "invoice" in text or "payment" in text:
         return "receipt"
-    if "new login" in text or "login detected" in text:
+    if "security alert" in text or "new login" in text or "login detected" in text:
         return "login"
     if "otp" in text or "verification code" in text or "two-factor" in text:
         return "otp"
