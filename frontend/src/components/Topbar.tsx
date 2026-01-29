@@ -10,6 +10,7 @@ const defaultQuery =
 export default function Topbar() {
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState(defaultQuery);
+  const [search, setSearch] = useState("");
 
   const runScan = async () => {
     setLoading(true);
@@ -38,9 +39,21 @@ export default function Topbar() {
         <input
           className="topbar__search"
           placeholder="Search services..."
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+        <input
+          className="topbar__search"
+          placeholder="Scan query..."
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
+        <a
+          className="btn secondary"
+          href={search ? `/dashboard?q=${encodeURIComponent(search)}` : "/dashboard"}
+        >
+          Search
+        </a>
         <button className="btn" onClick={runScan} disabled={loading}>
           {loading ? "Scanning..." : "Run Scan"}
         </button>
