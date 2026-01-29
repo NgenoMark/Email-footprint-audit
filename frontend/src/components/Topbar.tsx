@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { fetchJson } from "../lib/api";
+import type { ScanListResponse } from "../types/api";
 
 const defaultQuery =
   'subject:(welcome OR verify OR "confirm your email" OR "password reset" OR receipt OR invoice OR security OR login OR "new login" OR "verification code" OR "one-time" OR "two-factor" OR account)';
@@ -11,23 +12,53 @@ export default function Topbar() {
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState(defaultQuery);
   const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
 
   const runScan = async () => {
     setLoading(true);
+    setStatus("Starting scan...");
     try {
       await fetchJson("/scans", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider: "gmail", query }),
       });
-      alert("Scan started.");
+      setStatus("Scan queued. It will update shortly.");
     } catch (error) {
       console.error(error);
-      alert("Failed to start scan.");
+      setStatus("Failed to start scan.");
     } finally {
       setLoading(false);
     }
   };
+
+  const pollScans = async () => {
+    try {
+      const data = await fetchJson<ScanListResponse>("/scans");
+      const latest = data.items[0];
+      if (!latest) {
+        setStatus(null);
+        return;
+      }
+      if (latest.status === "running") {
+        setStatus("Scan running...");
+      } else if (latest.status === "success") {
+        setStatus("Scan complete.");
+      } else if (latest.status === "failed") {
+        setStatus("Scan failed.");
+      } else if (latest.status === "queued") {
+        setStatus("Scan queued.");
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    pollScans();
+    const id = setInterval(pollScans, 5000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <div className="topbar panel">
@@ -58,6 +89,7 @@ export default function Topbar() {
           {loading ? "Scanning..." : "Run Scan"}
         </button>
       </div>
+      {status ? <p className="topbar__status">{status}</p> : null}
     </div>
   );
 }

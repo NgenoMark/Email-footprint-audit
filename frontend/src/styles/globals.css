@@ -17,6 +17,7 @@ body {
   color: var(--text-primary);
   background: var(--bg);
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 a {
@@ -152,16 +153,24 @@ textarea {
 .topbar {
   padding: 18px 22px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 24px;
+  flex-wrap: wrap;
 }
 
 .topbar__actions {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+.topbar__status {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .topbar__search {
@@ -170,7 +179,8 @@ textarea {
   padding: 10px 14px;
   border-radius: 10px;
   color: var(--text-primary);
-  min-width: 220px;
+  min-width: 200px;
+  flex: 1 1 220px;
 }
 
 .hero {
@@ -428,6 +438,41 @@ textarea {
   margin-top: 12px;
   display: grid;
   gap: 8px;
+}
+
+.settings__map {
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.settings__map-form {
+  display: grid;
+  gap: 10px;
+}
+
+.settings__map-form input {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.settings__map-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.settings__map-list li {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .pagination {
