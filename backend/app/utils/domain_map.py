@@ -40,6 +40,58 @@ def load_domain_map() -> dict[str, tuple[str, str | None]]:
     return mapping
 
 
+def upsert_override(domain: str, service_name: str, category: str | None) -> None:
+    target = domain.strip().lower()
+    if not target or not service_name.strip():
+        raise ValueError("Domain and service name are required")
+    override_path = _domain_map_paths()[1]
+    override_path.parent.mkdir(parents=True, exist_ok=True)
+
+    rows = []
+    if override_path.exists():
+        with override_path.open("r", newline="", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            for row in reader:
+                rows.append(row)
+    else:
+        rows = []
+
+    updated = False
+    for row in rows:
+        if (row.get("domain") or "").strip().lower() == target:
+            row["service_name"] = service_name.strip()
+            row["category"] = category or ""
+            updated = True
+            break
+
+    if not updated:
+        rows.append(
+            {"domain": target, "service_name": service_name.strip(), "category": category or ""}
+        )
+
+    with override_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["domain", "service_name", "category"])
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def list_overrides() -> list[dict[str, str]]:
+    override_path = _domain_map_paths()[1]
+    if not override_path.exists():
+        return []
+    with override_path.open("r", newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        return [
+            {
+                "domain": (row.get("domain") or "").strip(),
+                "service_name": (row.get("service_name") or "").strip(),
+                "category": (row.get("category") or "").strip(),
+            }
+            for row in reader
+            if row.get("domain") and row.get("service_name")
+        ]
+
+
 def resolve_service(domain: str, mapping: dict[str, tuple[str, str | None]]) -> ServiceMatch:
     target = domain.lower()
     best_domain = ""
