@@ -30,6 +30,9 @@ class ServiceListItem(BaseModel):
 
 class ServiceListResponse(BaseModel):
     items: list[ServiceListItem]
+    total: int
+    page: int
+    page_size: int
 
 
 class ServiceEvidenceItem(BaseModel):
@@ -58,11 +61,13 @@ def list_services(
     q: str | None = Query(default=None),
     confidence: str | None = Query(default=None),
     category: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=24, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> ServiceListResponse:
     user = db.query(User).order_by(User.created_at.asc()).first()
     if not user:
-        return ServiceListResponse(items=[])
+        return ServiceListResponse(items=[], total=0, page=page, page_size=page_size)
     query = db.query(Service).filter(Service.user_id == user.id)
     if q:
         like = f"%{q}%"
@@ -71,7 +76,13 @@ def list_services(
         query = query.filter(Service.confidence == confidence)
     if category:
         query = query.filter(Service.category == category)
-    services = query.order_by(Service.last_seen_at.desc().nullslast()).all()
+    total = query.count()
+    services = (
+        query.order_by(Service.last_seen_at.desc().nullslast())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
     items = []
     for service in services:
         evidence_count = (
@@ -92,7 +103,7 @@ def list_services(
                 evidence_count=evidence_count,
             )
         )
-    return ServiceListResponse(items=items)
+    return ServiceListResponse(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.get("/services/{service_id}", response_model=ServiceDetailResponse)

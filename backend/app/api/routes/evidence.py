@@ -23,12 +23,17 @@ class EvidenceItem(BaseModel):
 
 class EvidenceListResponse(BaseModel):
     items: list[EvidenceItem]
+    total: int
+    page: int
+    page_size: int
 
 
 @router.get("/evidence", response_model=EvidenceListResponse)
 def list_evidence(
     service_id: str | None = Query(default=None),
     evidence_type: str | None = Query(default=None, alias="type"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
 ) -> EvidenceListResponse:
     query = db.query(EvidenceEmail)
@@ -42,7 +47,13 @@ def list_evidence(
         )
     if evidence_type:
         query = query.filter(EvidenceEmail.evidence_type == evidence_type)
-    rows = query.order_by(EvidenceEmail.sent_at.desc()).limit(100).all()
+    total = query.count()
+    rows = (
+        query.order_by(EvidenceEmail.sent_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
     items = [
         EvidenceItem(
             id=str(row.id),
@@ -55,4 +66,4 @@ def list_evidence(
         )
         for row in rows
     ]
-    return EvidenceListResponse(items=items)
+    return EvidenceListResponse(items=items, total=total, page=page, page_size=page_size)
