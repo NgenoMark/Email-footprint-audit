@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
@@ -78,4 +79,5 @@ def gmail_oauth_callback(
         connected.scopes = tokens["scopes"]
     db.commit()
 
-    return {"connected": True, "email": email}
+    redirect_url = f"{settings.frontend_url}/connect?connected=true&email={email}"
+    return RedirectResponse(url=redirect_url)
