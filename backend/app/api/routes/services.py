@@ -1,7 +1,9 @@
 from datetime import datetime
+import uuid
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
@@ -9,6 +11,7 @@ from app.db.models.service import Service
 from app.db.models.service_evidence_link import ServiceEvidenceLink
 from app.db.models.evidence_email import EvidenceEmail
 from app.db.models.user import User
+from app.services.service_detector import detect_and_upsert_services
 
 router = APIRouter()
 
@@ -54,6 +57,7 @@ class ServiceDetailResponse(BaseModel):
 def list_services(
     q: str | None = Query(default=None),
     confidence: str | None = Query(default=None),
+    category: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> ServiceListResponse:
     user = db.query(User).order_by(User.created_at.asc()).first()
@@ -65,6 +69,8 @@ def list_services(
         query = query.filter(Service.display_name.ilike(like))
     if confidence:
         query = query.filter(Service.confidence == confidence)
+    if category:
+        query = query.filter(Service.category == category)
     services = query.order_by(Service.last_seen_at.desc().nullslast()).all()
     items = []
     for service in services:
@@ -91,7 +97,21 @@ def list_services(
 
 @router.get("/services/{service_id}", response_model=ServiceDetailResponse)
 def get_service(service_id: str, db: Session = Depends(get_db)) -> ServiceDetailResponse:
-    service = db.query(Service).filter_by(id=service_id).first()
+    try:
+        service_uuid = uuid.UUID(service_id)
+    except ValueError:
+        return ServiceDetailResponse(
+            id=service_id,
+            display_name="unknown",
+            primary_domain="unknown",
+            category=None,
+            confidence="low",
+            confidence_reason="service not found",
+            first_seen_at=None,
+            last_seen_at=None,
+            evidence=[],
+        )
+    service = db.query(Service).filter_by(id=service_uuid).first()
     if not service:
         return ServiceDetailResponse(
             id=service_id,
@@ -134,3 +154,25 @@ def get_service(service_id: str, db: Session = Depends(get_db)) -> ServiceDetail
         last_seen_at=service.last_seen_at,
         evidence=evidence_items,
     )
+
+
+@router.post("/services/rebuild")
+def rebuild_services(db: Session = Depends(get_db)) -> dict:
+    user = db.query(User).order_by(User.created_at.asc()).first()
+    if not user:
+        return {"services": 0}
+    service_ids = [
+        row[0] for row in db.query(Service.id).filter(Service.user_id == user.id).all()
+    ]
+    if service_ids:
+        db.execute(
+            delete(ServiceEvidenceLink).where(
+                ServiceEvidenceLink.service_id.in_(service_ids)
+            )
+        )
+    db.execute(delete(Service).where(Service.user_id == user.id))
+    db.commit()
+
+    services = detect_and_upsert_services(db, user.id)
+    db.commit()
+    return {"services": len(services)}
