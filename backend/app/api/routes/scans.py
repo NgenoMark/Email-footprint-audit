@@ -1,13 +1,15 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.db.models.connected_account import ConnectedAccount
 from app.db.models.scan_run import ScanRun
-from app.services.scan_engine import run_gmail_scan
+from app.db.session import SessionLocal
+from app.db.models.scan_run import ScanRun
+from app.services.scan_engine import run_gmail_scan_by_id
 
 router = APIRouter()
 
@@ -36,15 +38,36 @@ class ScanListResponse(BaseModel):
 
 @router.post("/scans", response_model=ScanCreateResponse)
 def create_scan(
-    payload: ScanCreateRequest, db: Session = Depends(get_db)
+    payload: ScanCreateRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
 ) -> ScanCreateResponse:
     if payload.provider != "gmail":
         raise HTTPException(status_code=400, detail="Unsupported provider")
     connected = db.query(ConnectedAccount).filter_by(provider="gmail").first()
     if not connected:
         raise HTTPException(status_code=400, detail="No Gmail account connected")
-    scan = run_gmail_scan(db, connected, payload.query)
-    return ScanCreateResponse(scan_id=str(scan.id), status=scan.status)
+    scan = ScanRun(
+        user_id=connected.user_id,
+        connected_account_id=connected.id,
+        status="queued",
+        query=payload.query,
+    )
+    db.add(scan)
+    db.commit()
+    db.refresh(scan)
+
+    def _run_scan():
+        db_session = SessionLocal()
+        try:
+            run_gmail_scan_by_id(
+                db_session, scan.id, connected.id, payload.query
+            )
+        finally:
+            db_session.close()
+
+    background_tasks.add_task(_run_scan)
+    return ScanCreateResponse(scan_id=str(scan.id), status="queued")
 
 
 @router.get("/scans", response_model=ScanListResponse)

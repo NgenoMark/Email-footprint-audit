@@ -38,18 +38,25 @@ def run_gmail_scan(
     db: Session,
     connected_account: ConnectedAccount,
     query: str,
+    scan: ScanRun | None = None,
     max_results: int = 200,
 ) -> ScanRun:
-    scan = ScanRun(
-        user_id=connected_account.user_id,
-        connected_account_id=connected_account.id,
-        status="running",
-        query=query,
-        started_at=datetime.now(timezone.utc),
-    )
-    db.add(scan)
-    db.commit()
-    db.refresh(scan)
+    if scan is None:
+        scan = ScanRun(
+            user_id=connected_account.user_id,
+            connected_account_id=connected_account.id,
+            status="running",
+            query=query,
+            started_at=datetime.now(timezone.utc),
+        )
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+    else:
+        scan.status = "running"
+        scan.started_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(scan)
 
     try:
         client = GmailClient(
@@ -117,3 +124,25 @@ def run_gmail_scan(
         db.commit()
         db.refresh(scan)
     return scan
+
+
+def run_gmail_scan_by_id(
+    db: Session,
+    scan_id,
+    connected_account_id,
+    query: str,
+    max_results: int = 200,
+) -> ScanRun:
+    scan = db.query(ScanRun).filter_by(id=scan_id).first()
+    connected = (
+        db.query(ConnectedAccount).filter_by(id=connected_account_id).first()
+    )
+    if not scan or not connected:
+        raise ValueError("Scan or connected account not found")
+    return run_gmail_scan(
+        db,
+        connected_account=connected,
+        query=query,
+        scan=scan,
+        max_results=max_results,
+    )
