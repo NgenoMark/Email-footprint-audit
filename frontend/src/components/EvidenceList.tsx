@@ -1,4 +1,4 @@
-type EvidenceItem = {
+export type EvidenceItem = {
   id: string;
   subject: string;
   from: string;
