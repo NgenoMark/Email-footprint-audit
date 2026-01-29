@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 
-import { fetchJson } from "../../lib/api";
+import { fetchJson, resolveApiUrl } from "../../lib/api";
 
 export default function SettingsPage() {
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [format, setFormat] = useState<"csv" | "json">("csv");
+  const [lastExportUrl, setLastExportUrl] = useState<string | null>(null);
 
-  const handleExport = async (format: "csv" | "json") => {
+  const handleExport = async () => {
     setExporting(true);
     try {
       const data = await fetchJson<{ url: string }>("/exports", {
@@ -16,7 +18,8 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ format }),
       });
-      window.open(data.url, "_blank");
+      setLastExportUrl(resolveApiUrl(data.url));
+      window.open(resolveApiUrl(data.url), "_blank");
     } catch (error) {
       console.error(error);
       alert("Export failed.");
@@ -52,15 +55,30 @@ export default function SettingsPage() {
         <div className="settings__actions">
           <button
             className="btn secondary"
-            onClick={() => handleExport("json")}
+            onClick={handleExport}
             disabled={exporting}
           >
-            {exporting ? "Exporting..." : "Export JSON"}
+            {exporting ? "Exporting..." : `Export ${format.toUpperCase()}`}
           </button>
+          <select
+            value={format}
+            onChange={(event) => setFormat(event.target.value as "csv" | "json")}
+          >
+            <option value="csv">CSV</option>
+            <option value="json">JSON</option>
+          </select>
           <button className="btn" onClick={handleDelete} disabled={deleting}>
             {deleting ? "Deleting..." : "Delete all data"}
           </button>
         </div>
+        {lastExportUrl ? (
+          <div className="settings__export">
+            <p className="subtitle">Last export:</p>
+            <a href={lastExportUrl} className="chip">
+              {lastExportUrl}
+            </a>
+          </div>
+        ) : null}
       </div>
       <div className="panel settings__info">
         <h3>Connected inbox</h3>
