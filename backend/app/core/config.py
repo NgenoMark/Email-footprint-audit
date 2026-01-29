@@ -16,6 +16,7 @@ class Settings:
         "GOOGLE_SCOPES", "https://www.googleapis.com/auth/gmail.readonly"
     )
     token_encryption_key: str = os.getenv("TOKEN_ENCRYPTION_KEY", "")
+    frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 
 settings = Settings()
