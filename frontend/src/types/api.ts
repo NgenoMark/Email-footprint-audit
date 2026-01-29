@@ -70,3 +70,13 @@ export type ScanListResponse = {
 export type ExportResponse = {
   url: string;
 };
+
+export type DomainMapItem = {
+  domain: string;
+  service_name: string;
+  category: string;
+};
+
+export type DomainMapResponse = {
+  items: DomainMapItem[];
+};

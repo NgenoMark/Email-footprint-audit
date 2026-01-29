@@ -1,14 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { fetchJson, resolveApiUrl } from "../../lib/api";
+import type { DomainMapResponse } from "../../types/api";
 
 export default function SettingsPage() {
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [format, setFormat] = useState<"csv" | "json">("csv");
   const [lastExportUrl, setLastExportUrl] = useState<string | null>(null);
+  const [domain, setDomain] = useState("");
+  const [serviceName, setServiceName] = useState("");
+  const [category, setCategory] = useState("");
+  const [overrides, setOverrides] = useState<DomainMapResponse["items"]>([]);
 
   const handleExport = async () => {
     setExporting(true);
@@ -43,6 +48,44 @@ export default function SettingsPage() {
       setDeleting(false);
     }
   };
+
+  const loadOverrides = async () => {
+    try {
+      const data = await fetchJson<DomainMapResponse>("/domain-map");
+      setOverrides(data.items);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleOverrideSave = async () => {
+    if (!domain || !serviceName) {
+      alert("Domain and service name are required.");
+      return;
+    }
+    try {
+      await fetchJson("/domain-map", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          domain,
+          service_name: serviceName,
+          category: category || null,
+        }),
+      });
+      setDomain("");
+      setServiceName("");
+      setCategory("");
+      loadOverrides();
+    } catch (error) {
+      console.error(error);
+      alert("Failed to save mapping.");
+    }
+  };
+
+  useEffect(() => {
+    loadOverrides();
+  }, []);
 
   return (
     <section className="grid">
@@ -86,6 +129,45 @@ export default function SettingsPage() {
         <p className="subtitle">
           Tokens are encrypted at rest and never leave this machine.
         </p>
+      </div>
+      <div className="panel settings__map">
+        <h3>Domain map overrides</h3>
+        <p className="subtitle">
+          Add or fix service mappings without editing CSV files.
+        </p>
+        <div className="settings__map-form">
+          <input
+            placeholder="domain.com"
+            value={domain}
+            onChange={(event) => setDomain(event.target.value)}
+          />
+          <input
+            placeholder="Service name"
+            value={serviceName}
+            onChange={(event) => setServiceName(event.target.value)}
+          />
+          <input
+            placeholder="Category"
+            value={category}
+            onChange={(event) => setCategory(event.target.value)}
+          />
+          <button className="btn secondary" onClick={handleOverrideSave}>
+            Save mapping
+          </button>
+        </div>
+        {overrides.length === 0 ? (
+          <p className="subtitle">No overrides yet.</p>
+        ) : (
+          <ul className="settings__map-list">
+            {overrides.map((item) => (
+              <li key={item.domain}>
+                <strong>{item.domain}</strong>
+                <span>{item.service_name}</span>
+                <span className="chip">{item.category || "uncategorized"}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </section>
   );
