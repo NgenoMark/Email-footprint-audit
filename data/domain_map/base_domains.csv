@@ -8,8 +8,10 @@ accounts.google.com,Google,productivity
 amazon.com,Amazon,shopping
 spotify.com,Spotify,streaming
 facebookmail.com,Facebook,social
+facebookmail.net,Facebook,social
 x.com,X (Twitter),social
 twitter.com,X (Twitter),social
+twittermail.com,X (Twitter),social
 steamcommunity.com,Steam,gaming
 epicgames.com,Epic Games,gaming
 playstation.com,PlayStation,gaming
@@ -17,6 +19,7 @@ microsoft.com,Microsoft,productivity
 office.com,Microsoft 365,productivity
 apple.com,Apple,productivity
 instagram.com,Instagram,social
+tiktokmail.com,TikTok,social
 tiktok.com,TikTok,social
 twitch.tv,Twitch,streaming
 reddit.com,Reddit,community
