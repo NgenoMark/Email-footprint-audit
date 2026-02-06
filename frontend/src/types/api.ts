@@ -61,6 +61,9 @@ export type ScanItem = {
   query: string;
   started_at: string | null;
   finished_at: string | null;
+  processed_count: number;
+  total_estimated: number | null;
+  progress_pct: number | null;
 };
 
 export type ScanListResponse = {

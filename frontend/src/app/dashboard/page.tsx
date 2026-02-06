@@ -85,6 +85,9 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
                       ? new Date(scan.started_at).toLocaleString()
                       : "unknown"}
                   </span>
+                  {scan.progress_pct != null ? (
+                    <span>{Math.round(scan.progress_pct)}%</span>
+                  ) : null}
                 </li>
               ))}
             </ul>

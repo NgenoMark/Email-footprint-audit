@@ -41,7 +41,9 @@ export default function Topbar() {
         return;
       }
       if (latest.status === "running") {
-        setStatus("Scan running...");
+        const pct =
+          latest.progress_pct != null ? ` ${latest.progress_pct.toFixed(0)}%` : "";
+        setStatus(`Scan running${pct}...`);
       } else if (latest.status === "success") {
         setStatus("Scan complete.");
       } else if (latest.status === "failed") {
