@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db
 from app.db.models.connected_account import ConnectedAccount
 from app.db.models.scan_run import ScanRun
+from app.core.config import settings
+from app.core.queue import enqueue_scan
 from app.db.session import SessionLocal
 from app.db.models.scan_run import ScanRun
 from app.services.scan_engine import run_gmail_scan_by_id
@@ -37,6 +39,9 @@ class ScanItem(BaseModel):
 
 class ScanListResponse(BaseModel):
     items: list[ScanItem]
+    total: int
+    page: int
+    page_size: int
 
 
 @router.post("/scans", response_model=ScanCreateResponse)
@@ -63,24 +68,29 @@ def create_scan(
     def _run_scan():
         db_session = SessionLocal()
         try:
-            run_gmail_scan_by_id(
-                db_session, scan.id, connected.id, payload.query
-            )
+            run_gmail_scan_by_id(db_session, scan.id, connected.id, payload.query)
         finally:
             db_session.close()
 
-    background_tasks.add_task(_run_scan)
+    if settings.use_rq:
+        enqueue_scan(_run_scan)
+    else:
+        background_tasks.add_task(_run_scan)
     return ScanCreateResponse(scan_id=str(scan.id), status="queued")
 
 
 @router.get("/scans", response_model=ScanListResponse)
-def list_scans(db: Session = Depends(get_db)) -> ScanListResponse:
+def list_scans(
+    page: int = 1,
+    page_size: int = 20,
+    db: Session = Depends(get_db),
+) -> ScanListResponse:
     scans = (
         db.query(ScanRun)
         .order_by(ScanRun.created_at.desc())
-        .limit(20)
-        .all()
     )
+    total = scans.count()
+    scans = scans.offset((page - 1) * page_size).limit(page_size).all()
     items = [
         ScanItem(
             id=str(scan.id),
@@ -94,7 +104,7 @@ def list_scans(db: Session = Depends(get_db)) -> ScanListResponse:
         )
         for scan in scans
     ]
-    return ScanListResponse(items=items)
+    return ScanListResponse(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.post("/scans/{scan_id}/resume", response_model=ScanCreateResponse)
@@ -115,11 +125,12 @@ def resume_scan(
     def _resume_scan():
         db_session = SessionLocal()
         try:
-            run_gmail_scan_by_id(
-                db_session, scan.id, connected.id, scan.query
-            )
+            run_gmail_scan_by_id(db_session, scan.id, connected.id, scan.query)
         finally:
             db_session.close()
 
-    background_tasks.add_task(_resume_scan)
+    if settings.use_rq:
+        enqueue_scan(_resume_scan)
+    else:
+        background_tasks.add_task(_resume_scan)
     return ScanCreateResponse(scan_id=str(scan.id), status="queued")

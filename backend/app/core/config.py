@@ -17,6 +17,8 @@ class Settings:
     )
     token_encryption_key: str = os.getenv("TOKEN_ENCRYPTION_KEY", "")
     frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    use_rq: bool = os.getenv("USE_RQ", "false").lower() in {"1", "true", "yes"}
+    redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 
 settings = Settings()
