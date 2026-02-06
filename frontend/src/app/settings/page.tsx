@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { fetchJson, resolveApiUrl } from "../../lib/api";
-import type { DomainMapResponse } from "../../types/api";
+import type { DomainMapResponse, ExportHistoryResponse } from "../../types/api";
 
 export default function SettingsPage() {
   const [exporting, setExporting] = useState(false);
@@ -14,6 +14,9 @@ export default function SettingsPage() {
   const [serviceName, setServiceName] = useState("");
   const [category, setCategory] = useState("");
   const [overrides, setOverrides] = useState<DomainMapResponse["items"]>([]);
+  const [history, setHistory] = useState<ExportHistoryResponse["items"]>([]);
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
 
   const handleExport = async () => {
     setExporting(true);
@@ -25,6 +28,7 @@ export default function SettingsPage() {
       });
       setLastExportUrl(resolveApiUrl(data.url));
       window.open(resolveApiUrl(data.url), "_blank");
+      loadExportHistory();
     } catch (error) {
       console.error(error);
       alert("Export failed.");
@@ -58,6 +62,15 @@ export default function SettingsPage() {
     }
   };
 
+  const loadExportHistory = async () => {
+    try {
+      const data = await fetchJson<ExportHistoryResponse>("/exports/history");
+      setHistory(data.items);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const handleOverrideSave = async () => {
     if (!domain || !serviceName) {
       alert("Domain and service name are required.");
@@ -85,7 +98,39 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadOverrides();
+    loadExportHistory();
   }, []);
+
+  const handleImport = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const fileInput = form.querySelector<HTMLInputElement>("input[type=file]");
+    if (!fileInput?.files?.[0]) {
+      alert("Select a CSV file first.");
+      return;
+    }
+    setImporting(true);
+    setImportMessage(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+      const response = await fetch(resolveApiUrl("/imports/password-manager"), {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error("Import failed");
+      }
+      const data = await response.json();
+      setImportMessage(`Imported ${data.imported} services.`);
+      form.reset();
+    } catch (error) {
+      console.error(error);
+      setImportMessage("Import failed.");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   return (
     <section className="grid">
@@ -122,6 +167,24 @@ export default function SettingsPage() {
             </a>
           </div>
         ) : null}
+        <div className="settings__export">
+          <h3>Export history</h3>
+          {history.length === 0 ? (
+            <p className="subtitle">No exports yet.</p>
+          ) : (
+            <ul className="settings__map-list">
+              {history.map((item) => (
+                <li key={item.id}>
+                  <strong>{item.format.toUpperCase()}</strong>
+                  <span>{new Date(item.created_at).toLocaleString()}</span>
+                  <a href={resolveApiUrl(item.download_url)} className="chip">
+                    Download
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
       <div className="panel settings__info">
         <h3>Connected inbox</h3>
@@ -168,6 +231,20 @@ export default function SettingsPage() {
             ))}
           </ul>
         )}
+      </div>
+      <div className="panel settings__map">
+        <h3>Password manager import</h3>
+        <p className="subtitle">
+          Import a CSV export from Bitwarden, 1Password, or browser password
+          managers.
+        </p>
+        <form className="settings__map-form" onSubmit={handleImport}>
+          <input type="file" accept=".csv" />
+          <button className="btn secondary" type="submit" disabled={importing}>
+            {importing ? "Importing..." : "Import CSV"}
+          </button>
+          {importMessage ? <p className="subtitle">{importMessage}</p> : null}
+        </form>
       </div>
     </section>
   );

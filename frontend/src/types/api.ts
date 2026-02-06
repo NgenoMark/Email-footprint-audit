@@ -68,10 +68,28 @@ export type ScanItem = {
 
 export type ScanListResponse = {
   items: ScanItem[];
+  total: number;
+  page: number;
+  page_size: number;
 };
 
 export type ExportResponse = {
   url: string;
+};
+
+export type ExportHistoryItem = {
+  id: string;
+  format: string;
+  status: string;
+  download_url: string;
+  created_at: string;
+};
+
+export type ExportHistoryResponse = {
+  items: ExportHistoryItem[];
+  total: number;
+  page: number;
+  page_size: number;
 };
 
 export type DomainMapItem = {
