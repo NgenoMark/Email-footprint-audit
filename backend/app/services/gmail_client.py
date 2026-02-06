@@ -1,6 +1,9 @@
+import time
+
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 
 class GmailClient:
@@ -38,10 +41,10 @@ class GmailClient:
         request = self._service.users().messages().list(
             userId="me", q=query, maxResults=max_results, pageToken=page_token
         )
-        return request.execute()
+        return self._execute_with_backoff(request.execute)
 
     def get_message(self, message_id: str) -> dict:
-        return (
+        request = (
             self._service.users()
             .messages()
             .get(
@@ -50,5 +53,19 @@ class GmailClient:
                 format="metadata",
                 metadataHeaders=["From", "Subject", "Date"],
             )
-            .execute()
         )
+        return self._execute_with_backoff(request.execute)
+
+    def _execute_with_backoff(self, func, retries: int = 5, base: float = 0.5):
+        for attempt in range(retries):
+            try:
+                return func()
+            except HttpError as exc:
+                if attempt == retries - 1:
+                    raise
+                sleep_for = base * (2 ** attempt)
+                time.sleep(sleep_for)
+            except OSError:
+                if attempt == retries - 1:
+                    raise
+                time.sleep(base * (2 ** attempt))

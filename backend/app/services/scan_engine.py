@@ -68,8 +68,8 @@ def run_gmail_scan(
             scopes=connected_account.scopes,
         )
 
-        next_token = None
-        total = 0
+        next_token = scan.next_page_token
+        total = scan.processed_count or 0
         page_size = min(100, max_results)
         while True:
             response = client.list_messages(
@@ -77,6 +77,10 @@ def run_gmail_scan(
                 max_results=min(page_size, max_results - total),
                 page_token=next_token,
             )
+            if scan.total_estimated is None:
+                estimate = response.get("resultSizeEstimate")
+                if isinstance(estimate, int):
+                    scan.total_estimated = estimate
             messages = response.get("messages", [])
             for message in messages:
                 message_id = message.get("id")
@@ -111,9 +115,16 @@ def run_gmail_scan(
 
             total += len(messages)
             next_token = response.get("nextPageToken")
+            scan.processed_count = total
+            if scan.total_estimated:
+                scan.progress_pct = min(100.0, (total / scan.total_estimated) * 100)
+            scan.next_page_token = next_token
+            db.commit()
             if not next_token or total >= max_results:
                 break
 
+        scan.next_page_token = None
+        scan.progress_pct = 100.0 if scan.processed_count else scan.progress_pct
         detect_and_upsert_services(db, connected_account.user_id)
         scan.status = "success"
     except Exception as exc:  # noqa: BLE001

@@ -30,6 +30,9 @@ class ScanItem(BaseModel):
     query: str
     started_at: datetime | None
     finished_at: datetime | None
+    processed_count: int
+    total_estimated: int | None
+    progress_pct: float | None
 
 
 class ScanListResponse(BaseModel):
@@ -85,7 +88,38 @@ def list_scans(db: Session = Depends(get_db)) -> ScanListResponse:
             query=scan.query,
             started_at=scan.started_at,
             finished_at=scan.finished_at,
+            processed_count=scan.processed_count or 0,
+            total_estimated=scan.total_estimated,
+            progress_pct=scan.progress_pct,
         )
         for scan in scans
     ]
     return ScanListResponse(items=items)
+
+
+@router.post("/scans/{scan_id}/resume", response_model=ScanCreateResponse)
+def resume_scan(
+    scan_id: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> ScanCreateResponse:
+    scan = db.query(ScanRun).filter_by(id=scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    if not scan.next_page_token:
+        raise HTTPException(status_code=400, detail="Scan is not resumable")
+    connected = db.query(ConnectedAccount).filter_by(id=scan.connected_account_id).first()
+    if not connected:
+        raise HTTPException(status_code=400, detail="No Gmail account connected")
+
+    def _resume_scan():
+        db_session = SessionLocal()
+        try:
+            run_gmail_scan_by_id(
+                db_session, scan.id, connected.id, scan.query
+            )
+        finally:
+            db_session.close()
+
+    background_tasks.add_task(_resume_scan)
+    return ScanCreateResponse(scan_id=str(scan.id), status="queued")
