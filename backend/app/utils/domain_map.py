@@ -2,6 +2,10 @@ import csv
 from dataclasses import dataclass
 from pathlib import Path
 
+from sqlalchemy.orm import Session
+
+from app.db.models.service_alias import ServiceAlias
+
 
 @dataclass(frozen=True)
 class ServiceMatch:
@@ -23,7 +27,7 @@ def _domain_map_paths() -> list[Path]:
     ]
 
 
-def load_domain_map() -> dict[str, tuple[str, str | None]]:
+def load_domain_map(db: Session | None = None) -> dict[str, tuple[str, str | None]]:
     mapping: dict[str, tuple[str, str | None]] = {}
     for path in _domain_map_paths():
         if not path.exists():
@@ -37,59 +41,45 @@ def load_domain_map() -> dict[str, tuple[str, str | None]]:
                 if not domain or not name:
                     continue
                 mapping[domain] = (name, category)
+    if db is not None:
+        aliases = db.query(ServiceAlias).all()
+        for alias in aliases:
+            mapping[alias.domain.strip().lower()] = (
+                alias.service_name,
+                alias.category,
+            )
     return mapping
 
 
-def upsert_override(domain: str, service_name: str, category: str | None) -> None:
+def upsert_override(
+    db: Session, domain: str, service_name: str, category: str | None
+) -> None:
     target = domain.strip().lower()
     if not target or not service_name.strip():
         raise ValueError("Domain and service name are required")
-    override_path = _domain_map_paths()[1]
-    override_path.parent.mkdir(parents=True, exist_ok=True)
-
-    rows = []
-    if override_path.exists():
-        with override_path.open("r", newline="", encoding="utf-8") as handle:
-            reader = csv.DictReader(handle)
-            for row in reader:
-                rows.append(row)
+    existing = db.query(ServiceAlias).filter_by(domain=target).first()
+    if existing:
+        existing.service_name = service_name.strip()
+        existing.category = category
     else:
-        rows = []
-
-    updated = False
-    for row in rows:
-        if (row.get("domain") or "").strip().lower() == target:
-            row["service_name"] = service_name.strip()
-            row["category"] = category or ""
-            updated = True
-            break
-
-    if not updated:
-        rows.append(
-            {"domain": target, "service_name": service_name.strip(), "category": category or ""}
+        db.add(
+            ServiceAlias(
+                domain=target, service_name=service_name.strip(), category=category
+            )
         )
-
-    with override_path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=["domain", "service_name", "category"])
-        writer.writeheader()
-        writer.writerows(rows)
+    db.commit()
 
 
-def list_overrides() -> list[dict[str, str]]:
-    override_path = _domain_map_paths()[1]
-    if not override_path.exists():
-        return []
-    with override_path.open("r", newline="", encoding="utf-8") as handle:
-        reader = csv.DictReader(handle)
-        return [
-            {
-                "domain": (row.get("domain") or "").strip(),
-                "service_name": (row.get("service_name") or "").strip(),
-                "category": (row.get("category") or "").strip(),
-            }
-            for row in reader
-            if row.get("domain") and row.get("service_name")
-        ]
+def list_overrides(db: Session) -> list[dict[str, str]]:
+    aliases = db.query(ServiceAlias).order_by(ServiceAlias.domain.asc()).all()
+    return [
+        {
+            "domain": alias.domain,
+            "service_name": alias.service_name,
+            "category": alias.category or "",
+        }
+        for alias in aliases
+    ]
 
 
 def resolve_service(domain: str, mapping: dict[str, tuple[str, str | None]]) -> ServiceMatch:

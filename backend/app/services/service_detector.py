@@ -11,7 +11,7 @@ from app.utils.domain_map import load_domain_map, resolve_service
 
 
 def detect_and_upsert_services(db: Session, user_id) -> list[Service]:
-    mapping = load_domain_map()
+    mapping = load_domain_map(db)
     evidence_rows = (
         db.query(EvidenceEmail)
         .filter(EvidenceEmail.user_id == user_id)

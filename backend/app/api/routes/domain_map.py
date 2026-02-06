@@ -20,13 +20,15 @@ def get_domain_overrides(db: Session = Depends(get_db)) -> dict:
     user = db.query(User).order_by(User.created_at.asc()).first()
     if not user:
         return {"items": []}
-    return {"items": list_overrides()}
+    return {"items": list_overrides(db)}
 
 
 @router.post("/domain-map")
-def upsert_domain_override(payload: DomainMapRequest) -> dict:
+def upsert_domain_override(
+    payload: DomainMapRequest, db: Session = Depends(get_db)
+) -> dict:
     try:
-        upsert_override(payload.domain, payload.service_name, payload.category)
+        upsert_override(db, payload.domain, payload.service_name, payload.category)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"updated": True}
