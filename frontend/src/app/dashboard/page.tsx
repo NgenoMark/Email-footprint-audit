@@ -1,6 +1,7 @@
 import EmptyState from "../../components/EmptyState";
 import Filters from "../../components/Filters";
 import RebuildButton from "../../components/RebuildButton";
+import ResumeScanButton from "../../components/ResumeScanButton";
 import ServiceCard from "../../components/ServiceCard";
 import { fetchJson } from "../../lib/api";
 import type {
@@ -38,7 +39,7 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
 
   const [servicesData, scansData, evidenceData] = await Promise.all([
     fetchJson<ServiceListResponse>(servicesPath),
-    fetchJson<ScanListResponse>("/scans"),
+    fetchJson<ScanListResponse>("/scans?page=1&page_size=5"),
     fetchJson<EvidenceListResponse>("/evidence?page=1&page_size=5"),
   ]);
   const services = servicesData.items;
@@ -87,6 +88,9 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
                   </span>
                   {scan.progress_pct != null ? (
                     <span>{Math.round(scan.progress_pct)}%</span>
+                  ) : null}
+                  {scan.status === "failed" && scan.id ? (
+                    <ResumeScanButton scanId={scan.id} />
                   ) : null}
                 </li>
               ))}
