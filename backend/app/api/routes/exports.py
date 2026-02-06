@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.db.models.evidence_email import EvidenceEmail
+from app.db.models.export_history import ExportHistory
 from app.db.models.service import Service
 from app.db.models.service_evidence_link import ServiceEvidenceLink
 from app.db.models.user import User
@@ -76,6 +77,15 @@ def download_export_csv(export_id: str, db: Session = Depends(get_db)) -> Stream
         )
     output.seek(0)
     filename = f"services-{datetime.now(timezone.utc).date()}.csv"
+    db.add(
+        ExportHistory(
+            user_id=user.id,
+            format="csv",
+            status="ready",
+            download_url=f"/exports/{export_id}.csv",
+        )
+    )
+    db.commit()
     return StreamingResponse(
         output,
         media_type="text/csv",
@@ -112,4 +122,43 @@ def download_export_json(
                 "evidence_count": evidence_count,
             }
         )
+    db.add(
+        ExportHistory(
+            user_id=user.id,
+            format="json",
+            status="ready",
+            download_url=f"/exports/{export_id}.json",
+        )
+    )
+    db.commit()
     return JSONResponse(payload)
+
+
+@router.get("/exports/history")
+def export_history(
+    page: int = 1,
+    page_size: int = 20,
+    db: Session = Depends(get_db),
+) -> dict:
+    user = db.query(User).order_by(User.created_at.asc()).first()
+    if not user:
+        return {"items": [], "total": 0, "page": page, "page_size": page_size}
+    query = db.query(ExportHistory).filter(ExportHistory.user_id == user.id)
+    total = query.count()
+    rows = (
+        query.order_by(ExportHistory.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    items = [
+        {
+            "id": str(row.id),
+            "format": row.format,
+            "status": row.status,
+            "download_url": row.download_url,
+            "created_at": row.created_at.isoformat(),
+        }
+        for row in rows
+    ]
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
