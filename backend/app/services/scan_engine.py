@@ -70,10 +70,19 @@ def run_gmail_scan(
 
         next_token = scan.next_page_token
         total = scan.processed_count or 0
+        resume_query = query
+        boundary_message_id = scan.cursor_last_message_id
+        boundary_reached = boundary_message_id is None
+        if next_token is None and scan.cursor_before_sent_at is not None:
+            # Fallback continuation path when page token is unavailable/expired.
+            before_epoch = int(scan.cursor_before_sent_at.timestamp()) + 1
+            resume_query = f"({query}) before:{before_epoch}"
         page_size = min(100, max_results)
+        page_number = 0
         while True:
+            page_number += 1
             response = client.list_messages(
-                query=query,
+                query=resume_query,
                 max_results=min(page_size, max_results - total),
                 page_token=next_token,
             )
@@ -85,6 +94,10 @@ def run_gmail_scan(
             for message in messages:
                 message_id = message.get("id")
                 if not message_id:
+                    continue
+                if not boundary_reached:
+                    if message_id == boundary_message_id:
+                        boundary_reached = True
                     continue
                 existing = (
                     db.query(EvidenceEmail)
@@ -112,8 +125,13 @@ def run_gmail_scan(
                     raw_headers=headers,
                 )
                 db.add(evidence)
+                scan.cursor_before_sent_at = sent_at
+                scan.cursor_last_message_id = message_id
 
             total += len(messages)
+            if not boundary_reached and page_number == 1:
+                # Boundary message may have been deleted. Continue with dedupe guard.
+                boundary_reached = True
             next_token = response.get("nextPageToken")
             scan.processed_count = total
             if scan.total_estimated:
@@ -125,6 +143,8 @@ def run_gmail_scan(
 
         scan.next_page_token = None
         scan.progress_pct = 100.0 if scan.processed_count else scan.progress_pct
+        scan.cursor_before_sent_at = None
+        scan.cursor_last_message_id = None
         detect_and_upsert_services(db, connected_account.user_id)
         scan.status = "success"
     except Exception as exc:  # noqa: BLE001

@@ -34,6 +34,10 @@ class ScanRun(Base):
     total_estimated: Mapped[int | None] = mapped_column(Integer, nullable=True)
     progress_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
     next_page_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cursor_before_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    cursor_last_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
