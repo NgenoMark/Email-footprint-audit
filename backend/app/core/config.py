@@ -1,6 +1,11 @@
 import os
 from dataclasses import dataclass
 
+from dotenv import load_dotenv
+
+# Ensure .env is loaded before reading any settings values.
+load_dotenv()
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -17,6 +22,11 @@ class Settings:
     )
     token_encryption_key: str = os.getenv("TOKEN_ENCRYPTION_KEY", "")
     frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    session_cookie_name: str = os.getenv("SESSION_COOKIE_NAME", "efa_user_email")
+    allow_legacy_single_user_fallback: bool = (
+        os.getenv("ALLOW_LEGACY_SINGLE_USER_FALLBACK", "true").lower()
+        in {"1", "true", "yes"}
+    )
     use_rq: bool = os.getenv("USE_RQ", "false").lower() in {"1", "true", "yes"}
     redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 

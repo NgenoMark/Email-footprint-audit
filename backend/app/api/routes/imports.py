@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import Query
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.db.models.import_run import ImportRun
 from app.db.models.service import Service
 from app.db.models.user import User
@@ -15,11 +16,8 @@ router = APIRouter()
 def import_password_manager(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> dict:
-    user = db.query(User).order_by(User.created_at.asc()).first()
-    if not user:
-        raise HTTPException(status_code=400, detail="No user found")
-
     content = file.file.read()
     try:
         text = content.decode("utf-8")
@@ -41,7 +39,7 @@ def import_password_manager(
             .first()
         )
         if not service:
-            confidence, reason = score_confidence([], match.match_type != "unknown")
+            confidence, _reason = score_confidence([], match.match_type != "unknown")
             service = Service(
                 user_id=user.id,
                 display_name=match.display_name,
@@ -66,3 +64,32 @@ def import_password_manager(
     )
     db.commit()
     return {"imported": imported}
+
+
+@router.get("/imports/history")
+def import_history(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    query = db.query(ImportRun).filter(ImportRun.user_id == user.id)
+    total = query.count()
+    rows = (
+        query.order_by(ImportRun.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    items = [
+        {
+            "id": str(row.id),
+            "source": row.source,
+            "status": row.status,
+            "imported_count": row.imported_count,
+            "notes": row.notes,
+            "created_at": row.created_at.isoformat(),
+        }
+        for row in rows
+    ]
+    return {"items": items, "total": total, "page": page, "page_size": page_size}

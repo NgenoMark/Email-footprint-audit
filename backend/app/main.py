@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from app.api.routes import auth, domain_map, evidence, exports, gmail, health, imports, scans, services, settings
+from app.api.routes import auth, domain_map, evidence, exports, gmail, health, imports, queue, scans, services, settings
 from app.core.config import settings as app_settings
 from app.core.logging import setup_logging
 
@@ -42,3 +42,4 @@ app.include_router(exports.router, prefix=app_settings.api_prefix, tags=["export
 app.include_router(settings.router, prefix=app_settings.api_prefix, tags=["settings"])
 app.include_router(domain_map.router, prefix=app_settings.api_prefix, tags=["domain-map"])
 app.include_router(imports.router, prefix=app_settings.api_prefix, tags=["imports"])
+app.include_router(queue.router, prefix=app_settings.api_prefix, tags=["queue"])
