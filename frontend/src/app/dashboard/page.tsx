@@ -1,4 +1,4 @@
-import EmptyState from "../../components/EmptyState";
+﻿import EmptyState from "../../components/EmptyState";
 import Filters from "../../components/Filters";
 import RebuildButton from "../../components/RebuildButton";
 import ResumeScanButton from "../../components/ResumeScanButton";
@@ -12,17 +12,50 @@ import type {
 
 type DashboardProps = {
   searchParams?: {
+    q?: string;
+    page?: string;
     confidence?: string;
     category?: string;
+    scan_page?: string;
+    evidence_page?: string;
   };
 };
+
+function buildDashboardUrl(params: {
+  q?: string;
+  confidence?: string;
+  category?: string;
+  page: number;
+  scanPage: number;
+  evidencePage: number;
+}): string {
+  const query = new URLSearchParams({
+    page: String(params.page),
+    scan_page: String(params.scanPage),
+    evidence_page: String(params.evidencePage),
+  });
+  if (params.q) {
+    query.set("q", params.q);
+  }
+  if (params.confidence) {
+    query.set("confidence", params.confidence);
+  }
+  if (params.category) {
+    query.set("category", params.category);
+  }
+  return `/dashboard?${query.toString()}`;
+}
 
 export default async function DashboardPage({ searchParams }: DashboardProps) {
   const confidence = searchParams?.confidence || "";
   const category = searchParams?.category || "";
   const search = searchParams?.q || "";
   const page = Number(searchParams?.page || 1);
+  const scanPage = Number(searchParams?.scan_page || 1);
+  const evidencePage = Number(searchParams?.evidence_page || 1);
   const pageSize = 24;
+  const miniPageSize = 5;
+
   const query = new URLSearchParams();
   if (search) {
     query.set("q", search);
@@ -39,9 +72,12 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
 
   const [servicesData, scansData, evidenceData] = await Promise.all([
     fetchJson<ServiceListResponse>(servicesPath),
-    fetchJson<ScanListResponse>("/scans?page=1&page_size=5"),
-    fetchJson<EvidenceListResponse>("/evidence?page=1&page_size=5"),
+    fetchJson<ScanListResponse>(`/scans?page=${scanPage}&page_size=${miniPageSize}`),
+    fetchJson<EvidenceListResponse>(
+      `/evidence?page=${evidencePage}&page_size=${miniPageSize}`
+    ),
   ]);
+
   const services = servicesData.items;
   const lastScan = scansData.items[0];
   const highCount = services.filter((svc) => svc.confidence === "high").length;
@@ -62,7 +98,7 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
           <h2>{servicesData.total} services discovered</h2>
           <p className="subtitle">
             {lastScan
-              ? `Last scan ${new Date(lastScan.started_at || "").toLocaleString()} · ${highCount} high confidence services detected.`
+              ? `Last scan ${new Date(lastScan.started_at || "").toLocaleString()} - ${highCount} high confidence services detected.`
               : "No scans yet. Run a scan to discover services."}
           </p>
         </div>
@@ -78,7 +114,7 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
             <p className="subtitle">No scans yet.</p>
           ) : (
             <ul>
-              {scansData.items.slice(0, 5).map((scan) => (
+              {scansData.items.map((scan) => (
                 <li key={scan.id}>
                   <strong>{scan.status}</strong>
                   <span>
@@ -96,24 +132,110 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
               ))}
             </ul>
           )}
+          <div className="pagination compact">
+            <a
+              className={`btn secondary ${scanPage <= 1 ? "disabled" : ""}`}
+              href={
+                scanPage > 1
+                  ? buildDashboardUrl({
+                      q: search,
+                      confidence,
+                      category,
+                      page,
+                      scanPage: scanPage - 1,
+                      evidencePage,
+                    })
+                  : "#"
+              }
+            >
+              Prev
+            </a>
+            <span className="chip">
+              {scansData.page}/{Math.max(1, Math.ceil(scansData.total / scansData.page_size))}
+            </span>
+            <a
+              className={`btn secondary ${
+                scansData.page * scansData.page_size >= scansData.total ? "disabled" : ""
+              }`}
+              href={
+                scansData.page * scansData.page_size < scansData.total
+                  ? buildDashboardUrl({
+                      q: search,
+                      confidence,
+                      category,
+                      page,
+                      scanPage: scanPage + 1,
+                      evidencePage,
+                    })
+                  : "#"
+              }
+            >
+              Next
+            </a>
+          </div>
         </div>
+
         <div className="panel dashboard__history">
           <h3>Recent evidence</h3>
           {evidenceData.items.length === 0 ? (
             <p className="subtitle">No evidence yet.</p>
           ) : (
             <ul>
-              {evidenceData.items.slice(0, 5).map((item) => (
+              {evidenceData.items.map((item) => (
                 <li key={item.id}>
                   <strong>{item.subject}</strong>
                   <span>
-                    {new Date(item.sent_at).toLocaleDateString()} · {item.from_domain}
+                    {new Date(item.sent_at).toLocaleDateString()} - {item.from_domain}
                   </span>
                 </li>
               ))}
             </ul>
           )}
+          <div className="pagination compact">
+            <a
+              className={`btn secondary ${evidencePage <= 1 ? "disabled" : ""}`}
+              href={
+                evidencePage > 1
+                  ? buildDashboardUrl({
+                      q: search,
+                      confidence,
+                      category,
+                      page,
+                      scanPage,
+                      evidencePage: evidencePage - 1,
+                    })
+                  : "#"
+              }
+            >
+              Prev
+            </a>
+            <span className="chip">
+              {evidenceData.page}/{Math.max(1, Math.ceil(evidenceData.total / evidenceData.page_size))}
+            </span>
+            <a
+              className={`btn secondary ${
+                evidenceData.page * evidenceData.page_size >= evidenceData.total
+                  ? "disabled"
+                  : ""
+              }`}
+              href={
+                evidenceData.page * evidenceData.page_size < evidenceData.total
+                  ? buildDashboardUrl({
+                      q: search,
+                      confidence,
+                      category,
+                      page,
+                      scanPage,
+                      evidencePage: evidencePage + 1,
+                    })
+                  : "#"
+              }
+            >
+              Next
+            </a>
+          </div>
         </div>
+
         <div className="panel dashboard__history">
           <h3>Maintenance</h3>
           <p className="subtitle">
@@ -159,12 +281,14 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
               className={`btn secondary ${page <= 1 ? "disabled" : ""}`}
               href={
                 page > 1
-                  ? `/dashboard?${new URLSearchParams({
-                      ...(search ? { q: search } : {}),
-                      ...(confidence ? { confidence } : {}),
-                      ...(category ? { category } : {}),
-                      page: String(page - 1),
-                    }).toString()}`
+                  ? buildDashboardUrl({
+                      q: search,
+                      confidence,
+                      category,
+                      page: page - 1,
+                      scanPage,
+                      evidencePage,
+                    })
                   : "#"
               }
             >
@@ -182,12 +306,14 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
               }`}
               href={
                 servicesData.page * servicesData.page_size < servicesData.total
-                  ? `/dashboard?${new URLSearchParams({
-                      ...(search ? { q: search } : {}),
-                      ...(confidence ? { confidence } : {}),
-                      ...(category ? { category } : {}),
-                      page: String(page + 1),
-                    }).toString()}`
+                  ? buildDashboardUrl({
+                      q: search,
+                      confidence,
+                      category,
+                      page: page + 1,
+                      scanPage,
+                      evidencePage,
+                    })
                   : "#"
               }
             >

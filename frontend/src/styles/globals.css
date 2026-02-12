@@ -483,6 +483,10 @@ textarea {
   margin-top: 8px;
 }
 
+.pagination.compact {
+  justify-content: flex-start;
+}
+
 .btn.disabled {
   opacity: 0.5;
   pointer-events: none;

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 
@@ -15,6 +15,9 @@ export default function SettingsPage() {
   const [category, setCategory] = useState("");
   const [overrides, setOverrides] = useState<DomainMapResponse["items"]>([]);
   const [history, setHistory] = useState<ExportHistoryResponse["items"]>([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const historyPageSize = 10;
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
 
@@ -28,7 +31,7 @@ export default function SettingsPage() {
       });
       setLastExportUrl(resolveApiUrl(data.url));
       window.open(resolveApiUrl(data.url), "_blank");
-      loadExportHistory();
+      loadExportHistory(historyPage);
     } catch (error) {
       console.error(error);
       alert("Export failed.");
@@ -62,10 +65,14 @@ export default function SettingsPage() {
     }
   };
 
-  const loadExportHistory = async () => {
+  const loadExportHistory = async (page = 1) => {
     try {
-      const data = await fetchJson<ExportHistoryResponse>("/exports/history");
+      const data = await fetchJson<ExportHistoryResponse>(
+        `/exports/history?page=${page}&page_size=${historyPageSize}`
+      );
       setHistory(data.items);
+      setHistoryPage(data.page);
+      setHistoryTotal(data.total);
     } catch (error) {
       console.error(error);
     }
@@ -98,7 +105,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadOverrides();
-    loadExportHistory();
+    loadExportHistory(1);
   }, []);
 
   const handleImport = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -184,11 +191,32 @@ export default function SettingsPage() {
               ))}
             </ul>
           )}
+          <div className="pagination compact">
+            <button
+              className={`btn secondary ${historyPage <= 1 ? "disabled" : ""}`}
+              onClick={() => loadExportHistory(historyPage - 1)}
+              disabled={historyPage <= 1}
+            >
+              Prev
+            </button>
+            <span className="chip">
+              {historyPage}/{Math.max(1, Math.ceil(historyTotal / historyPageSize))}
+            </span>
+            <button
+              className={`btn secondary ${
+                historyPage * historyPageSize >= historyTotal ? "disabled" : ""
+              }`}
+              onClick={() => loadExportHistory(historyPage + 1)}
+              disabled={historyPage * historyPageSize >= historyTotal}
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
       <div className="panel settings__info">
         <h3>Connected inbox</h3>
-        <p>Gmail · last scan 2 minutes ago</p>
+        <p>Gmail - last scan 2 minutes ago</p>
         <p className="subtitle">
           Tokens are encrypted at rest and never leave this machine.
         </p>
