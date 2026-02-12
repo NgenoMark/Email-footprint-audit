@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -9,9 +9,7 @@ from app.db.models.connected_account import ConnectedAccount
 from app.db.models.scan_run import ScanRun
 from app.core.config import settings
 from app.core.queue import enqueue_scan
-from app.db.session import SessionLocal
-from app.db.models.scan_run import ScanRun
-from app.services.scan_engine import run_gmail_scan_by_id
+from app.services.scan_jobs import perform_scan_job
 
 router = APIRouter()
 
@@ -65,24 +63,27 @@ def create_scan(
     db.commit()
     db.refresh(scan)
 
-    def _run_scan():
-        db_session = SessionLocal()
-        try:
-            run_gmail_scan_by_id(db_session, scan.id, connected.id, payload.query)
-        finally:
-            db_session.close()
-
     if settings.use_rq:
-        enqueue_scan(_run_scan)
+        enqueue_scan(
+            perform_scan_job,
+            str(scan.id),
+            str(connected.id),
+            payload.query,
+        )
     else:
-        background_tasks.add_task(_run_scan)
+        background_tasks.add_task(
+            perform_scan_job,
+            str(scan.id),
+            str(connected.id),
+            payload.query,
+        )
     return ScanCreateResponse(scan_id=str(scan.id), status="queued")
 
 
 @router.get("/scans", response_model=ScanListResponse)
 def list_scans(
-    page: int = 1,
-    page_size: int = 20,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> ScanListResponse:
     scans = (
@@ -122,15 +123,18 @@ def resume_scan(
     if not connected:
         raise HTTPException(status_code=400, detail="No Gmail account connected")
 
-    def _resume_scan():
-        db_session = SessionLocal()
-        try:
-            run_gmail_scan_by_id(db_session, scan.id, connected.id, scan.query)
-        finally:
-            db_session.close()
-
     if settings.use_rq:
-        enqueue_scan(_resume_scan)
+        enqueue_scan(
+            perform_scan_job,
+            str(scan.id),
+            str(connected.id),
+            scan.query,
+        )
     else:
-        background_tasks.add_task(_resume_scan)
+        background_tasks.add_task(
+            perform_scan_job,
+            str(scan.id),
+            str(connected.id),
+            scan.query,
+        )
     return ScanCreateResponse(scan_id=str(scan.id), status="queued")

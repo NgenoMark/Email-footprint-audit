@@ -1,7 +1,3 @@
-import csv
-import io
-from urllib.parse import urlparse
-
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
@@ -10,22 +6,10 @@ from app.db.models.import_run import ImportRun
 from app.db.models.service import Service
 from app.db.models.user import User
 from app.services.confidence_scoring import score_confidence
+from app.services.import_parsers import parse_password_manager_csv
 from app.utils.domain_map import load_domain_map, resolve_service
 
 router = APIRouter()
-
-
-def _extract_domain(raw: str) -> str | None:
-    if not raw:
-        return None
-    value = raw.strip()
-    if not value:
-        return None
-    if "://" not in value:
-        value = "https://" + value
-    parsed = urlparse(value)
-    return parsed.hostname
-
 
 @router.post("/imports/password-manager")
 def import_password_manager(
@@ -42,19 +26,10 @@ def import_password_manager(
     except UnicodeDecodeError:
         text = content.decode("latin-1")
 
-    reader = csv.DictReader(io.StringIO(text))
+    domains = parse_password_manager_csv(text)
     mapping = load_domain_map(db)
     imported = 0
-    for row in reader:
-        url = (
-            row.get("url")
-            or row.get("uri")
-            or row.get("website")
-            or row.get("login_uri")
-            or row.get("login_url")
-            or ""
-        )
-        domain = _extract_domain(url)
+    for domain in domains:
         if not domain:
             continue
 
