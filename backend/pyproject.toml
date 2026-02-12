@@ -16,6 +16,7 @@ dependencies = [
     "google-api-python-client",
     "rq",
     "redis",
+    "pytest",
 ]
 
 [tool.alembic]
