@@ -1,6 +1,21 @@
+"use client";
+
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+
 import ConnectButton from "../../components/ConnectButton";
+import { setUserEmail } from "../../lib/api";
 
 export default function ConnectPage() {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const email = searchParams.get("email");
+    if (email) {
+      setUserEmail(email);
+    }
+  }, [searchParams]);
+
   return (
     <section className="grid">
       <div className="panel connect">

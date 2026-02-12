@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { fetchJson } from "../lib/api";
-import type { ScanListResponse } from "../types/api";
+import type { QueueHealthResponse, ScanListResponse } from "../types/api";
 
 const defaultQuery =
   'subject:(welcome OR verify OR "confirm your email" OR "password reset" OR receipt OR invoice OR security OR login OR "new login" OR "verification code" OR "one-time" OR "two-factor" OR account)';
@@ -13,6 +13,7 @@ export default function Topbar() {
   const [query, setQuery] = useState(defaultQuery);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string | null>(null);
+  const [queueInfo, setQueueInfo] = useState<string | null>(null);
 
   const runScan = async () => {
     setLoading(true);
@@ -34,8 +35,20 @@ export default function Topbar() {
 
   const pollScans = async () => {
     try {
-      const data = await fetchJson<ScanListResponse>("/scans");
+      const [data, queue] = await Promise.all([
+        fetchJson<ScanListResponse>("/scans"),
+        fetchJson<QueueHealthResponse>("/queue/health"),
+      ]);
       const latest = data.items[0];
+      if (queue.use_rq) {
+        if (queue.healthy) {
+          setQueueInfo(`Queue depth: ${queue.queue_depth}`);
+        } else {
+          setQueueInfo("Queue unavailable");
+        }
+      } else {
+        setQueueInfo("Inline background mode");
+      }
       if (!latest) {
         setStatus(null);
         return;
@@ -53,6 +66,7 @@ export default function Topbar() {
       }
     } catch (error) {
       console.error(error);
+      setQueueInfo("Queue status unavailable");
     }
   };
 
@@ -91,7 +105,10 @@ export default function Topbar() {
           {loading ? "Scanning..." : "Run Scan"}
         </button>
       </div>
-      {status ? <p className="topbar__status">{status}</p> : null}
+      <div>
+        {status ? <p className="topbar__status">{status}</p> : null}
+        {queueInfo ? <p className="topbar__status">{queueInfo}</p> : null}
+      </div>
     </div>
   );
 }

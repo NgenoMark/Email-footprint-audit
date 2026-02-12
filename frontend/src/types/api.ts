@@ -101,3 +101,26 @@ export type DomainMapItem = {
 export type DomainMapResponse = {
   items: DomainMapItem[];
 };
+
+export type QueueHealthResponse = {
+  use_rq: boolean;
+  healthy: boolean;
+  queue_depth: number;
+  error?: string;
+};
+
+export type ImportHistoryItem = {
+  id: string;
+  source: string;
+  status: string;
+  imported_count: number;
+  notes: string | null;
+  created_at: string;
+};
+
+export type ImportHistoryResponse = {
+  items: ImportHistoryItem[];
+  total: number;
+  page: number;
+  page_size: number;
+};
