@@ -1,4 +1,5 @@
 import time
+import random
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -61,11 +62,24 @@ class GmailClient:
             try:
                 return func()
             except HttpError as exc:
+                status = getattr(exc.resp, "status", None)
+                if status not in {429, 500, 502, 503, 504}:
+                    raise
                 if attempt == retries - 1:
                     raise
-                sleep_for = base * (2 ** attempt)
+                retry_after = None
+                if hasattr(exc, "resp") and exc.resp is not None:
+                    retry_after = exc.resp.get("retry-after")
+                if retry_after:
+                    try:
+                        sleep_for = float(retry_after)
+                    except ValueError:
+                        sleep_for = base * (2**attempt)
+                else:
+                    # Jitter reduces thundering herd effects on repeated retries.
+                    sleep_for = (base * (2**attempt)) + random.uniform(0, 0.25)
                 time.sleep(sleep_for)
             except OSError:
                 if attempt == retries - 1:
                     raise
-                time.sleep(base * (2 ** attempt))
+                time.sleep((base * (2**attempt)) + random.uniform(0, 0.25))
