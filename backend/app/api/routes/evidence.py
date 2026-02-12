@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.db.models.evidence_email import EvidenceEmail
 from app.db.models.service_evidence_link import ServiceEvidenceLink
+from app.db.models.user import User
 
 router = APIRouter()
 
@@ -35,8 +36,9 @@ def list_evidence(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> EvidenceListResponse:
-    query = db.query(EvidenceEmail)
+    query = db.query(EvidenceEmail).filter(EvidenceEmail.user_id == user.id)
     if service_id:
         query = (
             query.join(

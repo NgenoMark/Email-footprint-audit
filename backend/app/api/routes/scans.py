@@ -4,9 +4,10 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.db.models.connected_account import ConnectedAccount
 from app.db.models.scan_run import ScanRun
+from app.db.models.user import User
 from app.core.config import settings
 from app.core.queue import enqueue_scan
 from app.services.scan_jobs import perform_scan_job
@@ -47,14 +48,19 @@ def create_scan(
     payload: ScanCreateRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> ScanCreateResponse:
     if payload.provider != "gmail":
         raise HTTPException(status_code=400, detail="Unsupported provider")
-    connected = db.query(ConnectedAccount).filter_by(provider="gmail").first()
+    connected = (
+        db.query(ConnectedAccount)
+        .filter_by(provider="gmail", user_id=user.id)
+        .first()
+    )
     if not connected:
         raise HTTPException(status_code=400, detail="No Gmail account connected")
     scan = ScanRun(
-        user_id=connected.user_id,
+        user_id=user.id,
         connected_account_id=connected.id,
         status="queued",
         query=payload.query,
@@ -85,9 +91,11 @@ def list_scans(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> ScanListResponse:
     scans = (
         db.query(ScanRun)
+        .filter(ScanRun.user_id == user.id)
         .order_by(ScanRun.created_at.desc())
     )
     total = scans.count()
@@ -113,11 +121,12 @@ def resume_scan(
     scan_id: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> ScanCreateResponse:
-    scan = db.query(ScanRun).filter_by(id=scan_id).first()
+    scan = db.query(ScanRun).filter_by(id=scan_id, user_id=user.id).first()
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
-    if not scan.next_page_token:
+    if not scan.next_page_token and not scan.cursor_before_sent_at:
         raise HTTPException(status_code=400, detail="Scan is not resumable")
     connected = db.query(ConnectedAccount).filter_by(id=scan.connected_account_id).first()
     if not connected:

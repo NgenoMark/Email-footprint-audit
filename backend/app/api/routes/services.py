@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.db.models.service import Service
 from app.db.models.service_evidence_link import ServiceEvidenceLink
 from app.db.models.evidence_email import EvidenceEmail
@@ -64,10 +64,8 @@ def list_services(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=24, ge=1, le=100),
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> ServiceListResponse:
-    user = db.query(User).order_by(User.created_at.asc()).first()
-    if not user:
-        return ServiceListResponse(items=[], total=0, page=page, page_size=page_size)
     query = db.query(Service).filter(Service.user_id == user.id)
     if q:
         like = f"%{q}%"
@@ -107,7 +105,11 @@ def list_services(
 
 
 @router.get("/services/{service_id}", response_model=ServiceDetailResponse)
-def get_service(service_id: str, db: Session = Depends(get_db)) -> ServiceDetailResponse:
+def get_service(
+    service_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ServiceDetailResponse:
     try:
         service_uuid = uuid.UUID(service_id)
     except ValueError:
@@ -122,7 +124,7 @@ def get_service(service_id: str, db: Session = Depends(get_db)) -> ServiceDetail
             last_seen_at=None,
             evidence=[],
         )
-    service = db.query(Service).filter_by(id=service_uuid).first()
+    service = db.query(Service).filter_by(id=service_uuid, user_id=user.id).first()
     if not service:
         return ServiceDetailResponse(
             id=service_id,
@@ -168,10 +170,10 @@ def get_service(service_id: str, db: Session = Depends(get_db)) -> ServiceDetail
 
 
 @router.post("/services/rebuild")
-def rebuild_services(db: Session = Depends(get_db)) -> dict:
-    user = db.query(User).order_by(User.created_at.asc()).first()
-    if not user:
-        return {"services": 0}
+def rebuild_services(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
     service_ids = [
         row[0] for row in db.query(Service.id).filter(Service.user_id == user.id).all()
     ]

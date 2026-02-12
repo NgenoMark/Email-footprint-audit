@@ -8,8 +8,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
-from app.db.models.evidence_email import EvidenceEmail
+from app.api.deps import get_current_user, get_db
 from app.db.models.export_history import ExportHistory
 from app.db.models.service import Service
 from app.db.models.service_evidence_link import ServiceEvidenceLink
@@ -28,7 +27,11 @@ class ExportResponse(BaseModel):
 
 
 @router.post("/exports", response_model=ExportResponse)
-def create_export(payload: ExportRequest) -> ExportResponse:
+def create_export(
+    payload: ExportRequest,
+    user: User = Depends(get_current_user),
+) -> ExportResponse:
+    _ = user
     export_id = str(uuid.uuid4())
     fmt = payload.format.lower()
     if fmt not in {"csv", "json"}:
@@ -37,11 +40,11 @@ def create_export(payload: ExportRequest) -> ExportResponse:
 
 
 @router.get("/exports/{export_id}.csv")
-def download_export_csv(export_id: str, db: Session = Depends(get_db)) -> StreamingResponse:
-    user = db.query(User).order_by(User.created_at.asc()).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="No user found")
-
+def download_export_csv(
+    export_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> StreamingResponse:
     services = db.query(Service).filter(Service.user_id == user.id).all()
     output = io.StringIO()
     writer = csv.writer(output)
@@ -59,9 +62,7 @@ def download_export_csv(export_id: str, db: Session = Depends(get_db)) -> Stream
         ]
     )
     for service in services:
-        evidence_count = (
-            db.query(ServiceEvidenceLink).filter_by(service_id=service.id).count()
-        )
+        evidence_count = db.query(ServiceEvidenceLink).filter_by(service_id=service.id).count()
         writer.writerow(
             [
                 str(service.id),
@@ -95,18 +96,14 @@ def download_export_csv(export_id: str, db: Session = Depends(get_db)) -> Stream
 
 @router.get("/exports/{export_id}.json")
 def download_export_json(
-    export_id: str, db: Session = Depends(get_db)
+    export_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> JSONResponse:
-    user = db.query(User).order_by(User.created_at.asc()).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="No user found")
-
     services = db.query(Service).filter(Service.user_id == user.id).all()
     payload = []
     for service in services:
-        evidence_count = (
-            db.query(ServiceEvidenceLink).filter_by(service_id=service.id).count()
-        )
+        evidence_count = db.query(ServiceEvidenceLink).filter_by(service_id=service.id).count()
         payload.append(
             {
                 "id": str(service.id),
@@ -139,10 +136,8 @@ def export_history(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> dict:
-    user = db.query(User).order_by(User.created_at.asc()).first()
-    if not user:
-        return {"items": [], "total": 0, "page": page, "page_size": page_size}
     query = db.query(ExportHistory).filter(ExportHistory.user_id == user.id)
     total = query.count()
     rows = (

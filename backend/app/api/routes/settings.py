@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.db.models.connected_account import ConnectedAccount
 from app.db.models.evidence_email import EvidenceEmail
 from app.db.models.scan_run import ScanRun
@@ -19,11 +19,10 @@ class DeleteDataResponse(BaseModel):
 
 
 @router.post("/settings/delete-data", response_model=DeleteDataResponse)
-def delete_data(db: Session = Depends(get_db)) -> DeleteDataResponse:
-    user = db.query(User).order_by(User.created_at.asc()).first()
-    if not user:
-        return DeleteDataResponse(deleted=False)
-
+def delete_data(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> DeleteDataResponse:
     service_ids = [
         row[0] for row in db.query(Service.id).filter(Service.user_id == user.id).all()
     ]

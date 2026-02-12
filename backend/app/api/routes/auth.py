@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.core.security import encrypt_token
 from app.db.models.connected_account import ConnectedAccount
 from app.db.models.user import User
@@ -11,6 +11,11 @@ from app.services.gmail_oauth import build_auth_url, exchange_code_for_tokens
 from app.core.config import settings
 
 router = APIRouter()
+
+
+@router.get("/auth/session")
+def auth_session(user: User = Depends(get_current_user)) -> dict:
+    return {"email": user.email, "display_name": user.display_name}
 
 
 @router.get("/auth/gmail/start")
@@ -80,4 +85,13 @@ def gmail_oauth_callback(
     db.commit()
 
     redirect_url = f"{settings.frontend_url}/connect?connected=true&email={email}"
-    return RedirectResponse(url=redirect_url)
+    response = RedirectResponse(url=redirect_url)
+    response.set_cookie(
+        key=settings.session_cookie_name,
+        value=email,
+        httponly=False,
+        samesite="lax",
+        secure=False,
+        max_age=60 * 60 * 24 * 14,
+    )
+    return response
