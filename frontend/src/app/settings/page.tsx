@@ -1,9 +1,18 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 
 import { fetchJson, resolveApiUrl } from "../../lib/api";
-import type { DomainMapResponse, ExportHistoryResponse } from "../../types/api";
+import type {
+  DomainMapResponse,
+  ExportHistoryResponse,
+  ImportHistoryResponse,
+} from "../../types/api";
+
+type Banner = {
+  type: "success" | "error";
+  message: string;
+};
 
 export default function SettingsPage() {
   const [exporting, setExporting] = useState(false);
@@ -20,9 +29,18 @@ export default function SettingsPage() {
   const historyPageSize = 10;
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [importHistory, setImportHistory] = useState<ImportHistoryResponse["items"]>([]);
+  const [importHistoryPage, setImportHistoryPage] = useState(1);
+  const [importHistoryTotal, setImportHistoryTotal] = useState(0);
+  const importHistoryPageSize = 10;
+  const [banner, setBanner] = useState<Banner | null>(null);
+
+  const showError = (message: string) => setBanner({ type: "error", message });
+  const showSuccess = (message: string) => setBanner({ type: "success", message });
 
   const handleExport = async () => {
     setExporting(true);
+    setBanner(null);
     try {
       const data = await fetchJson<{ url: string }>("/exports", {
         method: "POST",
@@ -31,10 +49,11 @@ export default function SettingsPage() {
       });
       setLastExportUrl(resolveApiUrl(data.url));
       window.open(resolveApiUrl(data.url), "_blank");
-      loadExportHistory(historyPage);
+      await loadExportHistory(historyPage);
+      showSuccess(`Export created (${format.toUpperCase()}).`);
     } catch (error) {
       console.error(error);
-      alert("Export failed.");
+      showError("Export failed.");
     } finally {
       setExporting(false);
     }
@@ -45,12 +64,13 @@ export default function SettingsPage() {
       return;
     }
     setDeleting(true);
+    setBanner(null);
     try {
       await fetchJson("/settings/delete-data", { method: "POST" });
-      alert("All data deleted.");
+      showSuccess("All data deleted.");
     } catch (error) {
       console.error(error);
-      alert("Delete failed.");
+      showError("Delete failed.");
     } finally {
       setDeleting(false);
     }
@@ -78,9 +98,23 @@ export default function SettingsPage() {
     }
   };
 
+  const loadImportHistory = async (page = 1) => {
+    try {
+      const data = await fetchJson<ImportHistoryResponse>(
+        `/imports/history?page=${page}&page_size=${importHistoryPageSize}`
+      );
+      setImportHistory(data.items);
+      setImportHistoryPage(data.page);
+      setImportHistoryTotal(data.total);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const handleOverrideSave = async () => {
+    setBanner(null);
     if (!domain || !serviceName) {
-      alert("Domain and service name are required.");
+      showError("Domain and service name are required.");
       return;
     }
     try {
@@ -96,16 +130,18 @@ export default function SettingsPage() {
       setDomain("");
       setServiceName("");
       setCategory("");
-      loadOverrides();
+      await loadOverrides();
+      showSuccess("Domain mapping saved.");
     } catch (error) {
       console.error(error);
-      alert("Failed to save mapping.");
+      showError("Failed to save mapping.");
     }
   };
 
   useEffect(() => {
     loadOverrides();
     loadExportHistory(1);
+    loadImportHistory(1);
   }, []);
 
   const handleImport = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -113,17 +149,22 @@ export default function SettingsPage() {
     const form = event.currentTarget;
     const fileInput = form.querySelector<HTMLInputElement>("input[type=file]");
     if (!fileInput?.files?.[0]) {
-      alert("Select a CSV file first.");
+      showError("Select a CSV file first.");
       return;
     }
     setImporting(true);
     setImportMessage(null);
+    setBanner(null);
     try {
       const formData = new FormData();
       formData.append("file", fileInput.files[0]);
+      const userEmail =
+        typeof window !== "undefined" ? window.localStorage.getItem("efa_user_email") : null;
       const response = await fetch(resolveApiUrl("/imports/password-manager"), {
         method: "POST",
         body: formData,
+        credentials: "include",
+        headers: userEmail ? { "X-User-Email": userEmail } : undefined,
       });
       if (!response.ok) {
         throw new Error("Import failed");
@@ -131,9 +172,12 @@ export default function SettingsPage() {
       const data = await response.json();
       setImportMessage(`Imported ${data.imported} services.`);
       form.reset();
+      await loadImportHistory(importHistoryPage);
+      showSuccess(`Import complete: ${data.imported} services.`);
     } catch (error) {
       console.error(error);
       setImportMessage("Import failed.");
+      showError("Import failed.");
     } finally {
       setImporting(false);
     }
@@ -141,6 +185,11 @@ export default function SettingsPage() {
 
   return (
     <section className="grid">
+      {banner ? (
+        <div className={`panel banner ${banner.type === "error" ? "banner--error" : "banner--success"}`}>
+          <p>{banner.message}</p>
+        </div>
+      ) : null}
       <div className="panel settings">
         <p className="tag">Settings</p>
         <h2>Privacy controls</h2>
@@ -273,6 +322,44 @@ export default function SettingsPage() {
           </button>
           {importMessage ? <p className="subtitle">{importMessage}</p> : null}
         </form>
+      </div>
+      <div className="panel settings__map">
+        <h3>Import history</h3>
+        {importHistory.length === 0 ? (
+          <p className="subtitle">No imports yet.</p>
+        ) : (
+          <ul className="settings__map-list">
+            {importHistory.map((item) => (
+              <li key={item.id}>
+                <strong>{item.source}</strong>
+                <span>{new Date(item.created_at).toLocaleString()}</span>
+                <span className="chip">{item.status}</span>
+                <span className="subtitle">Imported: {item.imported_count}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="pagination compact">
+          <button
+            className={`btn secondary ${importHistoryPage <= 1 ? "disabled" : ""}`}
+            onClick={() => loadImportHistory(importHistoryPage - 1)}
+            disabled={importHistoryPage <= 1}
+          >
+            Prev
+          </button>
+          <span className="chip">
+            {importHistoryPage}/{Math.max(1, Math.ceil(importHistoryTotal / importHistoryPageSize))}
+          </span>
+          <button
+            className={`btn secondary ${
+              importHistoryPage * importHistoryPageSize >= importHistoryTotal ? "disabled" : ""
+            }`}
+            onClick={() => loadImportHistory(importHistoryPage + 1)}
+            disabled={importHistoryPage * importHistoryPageSize >= importHistoryTotal}
+          >
+            Next
+          </button>
+        </div>
       </div>
     </section>
   );

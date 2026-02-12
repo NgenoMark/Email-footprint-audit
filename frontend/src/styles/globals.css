@@ -475,6 +475,25 @@ textarea {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.banner {
+  padding: 14px 16px;
+}
+
+.banner p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.banner--error {
+  border-color: rgba(255, 107, 107, 0.6);
+  background: rgba(255, 107, 107, 0.15);
+}
+
+.banner--success {
+  border-color: rgba(114, 255, 184, 0.55);
+  background: rgba(114, 255, 184, 0.12);
+}
+
 .pagination {
   display: flex;
   align-items: center;
